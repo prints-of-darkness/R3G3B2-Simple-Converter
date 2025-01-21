@@ -127,7 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="rgb332.cpp" />
+    <ClCompile Include="rgb332.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stb_image.h" />
