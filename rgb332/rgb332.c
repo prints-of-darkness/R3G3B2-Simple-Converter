@@ -1,7 +1,7 @@
 /*
     rgb332.c
 
-    Converts a RGB image to 8-bit RGB332.
+    Converts a RGB image to 8-bit RGB332. (needed for LT7683 TFT graphics controller)
 
     MJM 2025
 
