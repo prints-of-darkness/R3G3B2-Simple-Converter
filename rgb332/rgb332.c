@@ -143,34 +143,6 @@ unsigned char rgbTo332(unsigned char red, unsigned char green, unsigned char blu
     return ((red & 0xE0) | ((green & 0xE0) >> 3) | (blue >> 6));
 }
 
-//void floydSteinbergDither(uint8_t* data, int width, int height) {
-//    for (int y = 0; y < height; y++) {
-//        for (int x = 0; x < width; x++) {
-//            for (int c = 0; c < 3; c++) {
-//                int index = (y * width + x) * 3 + c;
-//                int oldPixel = data[index];
-//                int newPixel = oldPixel;
-//
-//                data[index] = newPixel;
-//                int error = oldPixel - newPixel;
-//
-//                if (x < width - 1)
-//                    data[index + 3] = (data[index + 3] + error * 7 / 16) > 255 ? 255 : ((data[index + 3] + error * 7 / 16) < 0 ? 0 : (data[index + 3] + error * 7 / 16));
-//
-//                if (y < height - 1) {
-//                    if (x > 0)
-//                        data[index + 3 * (width - 1)] = (data[index + 3 * (width - 1)] + error * 3 / 16) > 255 ? 255 : ((data[index + 3 * (width - 1)] + error * 3 / 16) < 0 ? 0 : (data[index + 3 * (width - 1)] + error * 3 / 16));
-//
-//                    data[index + 3 * width] = (data[index + 3 * width] + error * 5 / 16) > 255 ? 255 : ((data[index + 3 * width] + error * 5 / 16) < 0 ? 0 : (data[index + 3 * width] + error * 5 / 16));
-//
-//                    if (x < width - 1)
-//                        data[index + 3 * (width + 1)] = (data[index + 3 * (width + 1)] + error * 1 / 16) > 255 ? 255 : ((data[index + 3 * (width + 1)] + error * 1 / 16) < 0 ? 0 : (data[index + 3 * (width + 1)] + error * 1 / 16));
-//                }
-//            }
-//        }
-//    }
-//}
-
 void floydSteinbergDither(uint8_t* data, int width, int height) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
