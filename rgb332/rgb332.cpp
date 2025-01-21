@@ -7,6 +7,9 @@
 
     MJM 2025
 
+    For checking image conversion see: https://notisrac.github.io/FileToCArray/
+           (outputs are almost the same, but not exactly the same)
+
 */
 
 #include <cstdio>
@@ -39,8 +42,8 @@ int main(int argc, char* argv[])
             printf("Output file: %s\n", outfilename.c_str());
             i++;
         }
-        else if (strcmp(argv[i], "-v") == 0) {
-            printf("Verbose mode enabled.\n");
+        else if (strcmp(argv[i], "-m") == 0) {
+            printf("Mode 1 enabled.\n");
         }
         else {
             printf("Unknown option: %s\n", argv[i]);
