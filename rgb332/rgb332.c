@@ -47,7 +47,6 @@ int main(int argc, char* argv[])
             printf("Dithering on\n");
         }
         else if (strcmp(argv[i], "-h") == 0) {
-            dither = 1;
             printf("--| Help |--\n");
 			printf("Usage: rgb332 -i <input file> -o <output file> [-d]\n");
             return 0;
