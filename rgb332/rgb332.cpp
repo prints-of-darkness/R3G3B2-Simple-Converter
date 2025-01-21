@@ -102,8 +102,12 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-//https://basedwa.re/drummyfish/less_retarded_wiki/src/commit/70c10acfc52d3e3877b3772afba4dfd26bfe6a9b/rgb332.md
+
 unsigned char rgbTo332(unsigned char red, unsigned char green, unsigned char blue)
 {
+    //https://basedwa.re/drummyfish/less_retarded_wiki/src/commit/70c10acfc52d3e3877b3772afba4dfd26bfe6a9b/rgb332.md
     return ((red / 32) << 5) | ((green / 32) << 2) | (blue / 64);
+   
+    // or, https://github.com/notisrac/FileToCArray/blob/master/scripts/imageConverter.js
+    //return (red * 8 / 256) * 32 + (green * 8 / 256) * 4 + (blue * 4 / 256);
 }
