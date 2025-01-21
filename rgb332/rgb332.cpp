@@ -26,12 +26,11 @@ unsigned char rgbTo332(unsigned char red, unsigned char green, unsigned char blu
 
 int main(int argc, char* argv[])
 {
-    int i;
     FILE* fp;
     std::string infilename;
     std::string outfilename;
 
-    for (i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
             infilename = argv[i + 1];
             printf("Input file: %s\n", infilename.c_str());
@@ -42,9 +41,6 @@ int main(int argc, char* argv[])
             printf("Output file: %s\n", outfilename.c_str());
             i++;
         }
-        else if (strcmp(argv[i], "-m") == 0) {
-            printf("Mode 1 enabled.\n");
-        }
         else {
             printf("Unknown option: %s\n", argv[i]);
         }
@@ -54,19 +50,20 @@ int main(int argc, char* argv[])
 		printf("No input file specified.\n");
 		return 1;
 	}
+
     if (outfilename.empty()) {
         printf("No output file specified.\n");
 		return 1;
     }
 
     int x,y,n;
-    unsigned char *data = stbi_load(infilename.c_str(), &x, &y, &n, 3);
+    uint8_t *data = stbi_load(infilename.c_str(), &x, &y, &n, 3);
+    // ... process data if not NULL ...
+    // ... x = width, y = height, n = # 8-bit components per pixel ...
+    // ... replace '0' with '1'..'4' to force that many components per pixel
+    // ... but 'n' will always be the number that it would have been if you said 0
+
     if (data != NULL) {
-        // ... process data if not NULL ...
-        // ... x = width, y = height, n = # 8-bit components per pixel ...
-        // ... replace '0' with '1'..'4' to force that many components per pixel
-        // ... but 'n' will always be the number that it would have been if you said 0
-        
         fp = fopen(outfilename.c_str(), "w");
         std::string array_name = outfilename;
         array_name.erase(array_name.find_last_of("."));
@@ -77,10 +74,15 @@ int main(int argc, char* argv[])
 			fprintf(fp, "// width: %d\n", x);
             fprintf(fp, "// extern const uint8_t %s[];\n", array_name.c_str());
             fprintf(fp, "const uint8_t %s[%d] = {\n", array_name.c_str(), x*y);
-            for (int _y = 0; _y < y; _y++) {
-                for (int _x = 0; _x < x; _x++) {
-                    unsigned char* pixel = data + (_y * x + _x) * 3;
-                    uint8_t pixel332 = rgbTo332(pixel[0], pixel[1], pixel[2]);
+
+            int _y = 0, _x = 0;
+            uint8_t pixel332 = 0;
+            uint8_t* pixel = NULL;
+            
+            for (_y = 0; _y < y; _y++) {
+                for (_x = 0; _x < x; _x++) {
+                    pixel = data + (_y * x + _x) * 3;
+                    pixel332 = rgbTo332(pixel[0], pixel[1], pixel[2]);
                     fprintf(fp, "0x%.2X, ", pixel332);
                 }
                 fprintf(fp, "\n");
@@ -91,7 +93,6 @@ int main(int argc, char* argv[])
         else {
             printf("Failed to open output file.\n");
         }
-
         stbi_image_free(data);
     }
     else {
