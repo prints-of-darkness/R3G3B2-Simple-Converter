@@ -17,7 +17,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#define MAX_FILENAME_LENGTH 256
+#define MAX_FILENAME_LENGTH 1024
 
 unsigned char rgbTo332(unsigned char red, unsigned char green, unsigned char blue);
 void floydSteinbergDither(uint8_t* data, int width, int height);
