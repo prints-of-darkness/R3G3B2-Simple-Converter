@@ -1,3 +1,0 @@
-﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(531,5): warning MSB8028: The intermediate directory (x64\Debug\) contains files shared from another project (rgb332.vcxproj).  This can lead to incorrect clean and rebuild behavior.
-  LINK : C:\Users\Matt\Documents\GitHub\R3G3B2-Simple-Converter\x64\Debug\r3g3b2.exe not found or not built by the last incremental link; performing full link
-  rgb332.vcxproj -> C:\Users\Matt\Documents\GitHub\R3G3B2-Simple-Converter\x64\Debug\r3g3b2.exe
