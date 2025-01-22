@@ -58,7 +58,7 @@ static const uint32_t r3g3b2_to_r8g8b8_lut[256] = {
     0xFCC600, 0xFCC655, 0xFCC6AA, 0xFCC6FF, 0xFCE700, 0xFCE755, 0xFCE7AA, 0xFCE7FF
 };
 
-unsigned char rgbTo332(unsigned char red, unsigned char green, unsigned char blue);
+unsigned char r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue);
 void floydSteinbergDither(uint8_t* data, int width, int height);
 
 int main(int argc, char* argv[])
@@ -153,12 +153,12 @@ int main(int argc, char* argv[])
             for (_y = 0; _y < y; _y++) {
                 for (_x = 0; _x < x; _x++) {
                     pixel = data + (_y * x + _x) * 3;
-                    pixel332 = rgbTo332(pixel[0], pixel[1], pixel[2]);
+                    pixel332 = r8g8b8_to_r3g3b2(pixel[0], pixel[1], pixel[2]);
                     fprintf(fp, "0x%.2X, ", pixel332);
                     if (debug) {
                         pixel[0] = (r3g3b2_to_r8g8b8_lut[pixel332] >> 16) & 0xFF;
-                        pixel[1] = (r3g3b2_to_r8g8b8_lut[pixel332] >> 8) & 0xFF;
-                        pixel[2] = r3g3b2_to_r8g8b8_lut[pixel332] & 0xFF;
+                        pixel[1] = (r3g3b2_to_r8g8b8_lut[pixel332] >> 8)  & 0xFF;
+                        pixel[2] =  r3g3b2_to_r8g8b8_lut[pixel332]        & 0xFF;
                     }
                 }
                 fprintf(fp, "\n");
@@ -172,7 +172,6 @@ int main(int argc, char* argv[])
             fprintf(fp, "    .format_id = RGB332_FORMAT_ID\n");
             fprintf(fp, "};\n\n");
             fprintf(fp, "#endif // %s_H\n", array_name);
-
             fclose(fp);
         }
         else {
@@ -193,7 +192,7 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-unsigned char rgbTo332(unsigned char red, unsigned char green, unsigned char blue) {
+unsigned char r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue) {
     return ((red & 0xE0) | ((green & 0xE0) >> 3) | (blue >> 6));
 }
 
@@ -208,7 +207,7 @@ void floydSteinbergDither(uint8_t* data, int width, int height) {
             uint8_t newG = (oldG & 0xE0);
             uint8_t newB = (oldB & 0xC0);
 
-            data[(y * width + x) * 3] = newR;
+            data[(y * width + x) * 3]     = newR;
             data[(y * width + x) * 3 + 1] = newG;
             data[(y * width + x) * 3 + 2] = newB;
 
@@ -217,24 +216,24 @@ void floydSteinbergDither(uint8_t* data, int width, int height) {
             int errorB = oldB - newB;
 
             if (x < width - 1) {
-                data[(y * width + x + 1) * 3] = min(255, max(0, data[(y * width + x + 1) * 3] + errorR * 7 / 16));
+                data[(y * width + x + 1) * 3]     = min(255, max(0, data[(y * width + x + 1) * 3] + errorR * 7 / 16));
                 data[(y * width + x + 1) * 3 + 1] = min(255, max(0, data[(y * width + x + 1) * 3 + 1] + errorG * 7 / 16));
                 data[(y * width + x + 1) * 3 + 2] = min(255, max(0, data[(y * width + x + 1) * 3 + 2] + errorB * 7 / 16));
             }
 
             if (y < height - 1) {
                 if (x > 0) {
-                    data[((y + 1) * width + x - 1) * 3] = min(255, max(0, data[((y + 1) * width + x - 1) * 3] + errorR * 3 / 16));
+                    data[((y + 1) * width + x - 1) * 3]     = min(255, max(0, data[((y + 1) * width + x - 1) * 3] + errorR * 3 / 16));
                     data[((y + 1) * width + x - 1) * 3 + 1] = min(255, max(0, data[((y + 1) * width + x - 1) * 3 + 1] + errorG * 3 / 16));
                     data[((y + 1) * width + x - 1) * 3 + 2] = min(255, max(0, data[((y + 1) * width + x - 1) * 3 + 2] + errorB * 3 / 16));
                 }
 
-                data[((y + 1) * width + x) * 3] = min(255, max(0, data[((y + 1) * width + x) * 3] + errorR * 5 / 16));
+                data[((y + 1) * width + x) * 3]     = min(255, max(0, data[((y + 1) * width + x) * 3] + errorR * 5 / 16));
                 data[((y + 1) * width + x) * 3 + 1] = min(255, max(0, data[((y + 1) * width + x) * 3 + 1] + errorG * 5 / 16));
                 data[((y + 1) * width + x) * 3 + 2] = min(255, max(0, data[((y + 1) * width + x) * 3 + 2] + errorB * 5 / 16));
 
                 if (x < width - 1) {
-                    data[((y + 1) * width + x + 1) * 3] = min(255, max(0, data[((y + 1) * width + x + 1) * 3] + errorR * 1 / 16));
+                    data[((y + 1) * width + x + 1) * 3]     = min(255, max(0, data[((y + 1) * width + x + 1) * 3] + errorR * 1 / 16));
                     data[((y + 1) * width + x + 1) * 3 + 1] = min(255, max(0, data[((y + 1) * width + x + 1) * 3 + 1] + errorG * 1 / 16));
                     data[((y + 1) * width + x + 1) * 3 + 2] = min(255, max(0, data[((y + 1) * width + x + 1) * 3 + 2] + errorB * 1 / 16));
                 }
