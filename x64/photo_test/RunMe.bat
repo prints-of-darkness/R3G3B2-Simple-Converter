@@ -1,11 +1,11 @@
 @echo off
 rgb332.exe -h
 echo -----------------------------------------------
-rgb332.exe -i cat.png -o cat_dither.h -d
+rgb332.exe -i ParrotRedMacaw.jpg -o ParrotRedMacaw_dither.h -d
 echo -----------------------------------------------
-rgb332.exe -i cat.png -o cat.h
+rgb332.exe -i ParrotRedMacaw.jpg -o ParrotRedMacaw.h
 echo -----------------------------------------------
-check.exe cat_dither.h
+check.exe ParrotRedMacaw_dither.h
 echo -----------------------------------------------
-check.exe cat.h
+check.exe ParrotRedMacaw.h
 pause
