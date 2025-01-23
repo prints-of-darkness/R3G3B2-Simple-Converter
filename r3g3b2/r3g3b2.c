@@ -9,8 +9,6 @@
            (outputs are almost the same, but not exactly the same)
 */
 
-
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -24,57 +22,32 @@
 
 #define MAX_FILENAME_LENGTH 1024
 
-#define GAMMA 1.0
-#define CONTRAST_FACTOR 1.0
+uint8_t gamma_contrast_lut[256];
+uint32_t color_lut[256];            //r3g3b2 to r8g8b8 LUT
 
-static const uint32_t r3g3b2_to_r8g8b8_lut[256] = {
-    0x00000000, 0x00000055, 0x000000AA, 0x000000FF, 0x00002400, 0x00002455, 0x000024AA, 0x000024FF,
-    0x00004800, 0x00004855, 0x000048AA, 0x000048FF, 0x00006D00, 0x00006D55, 0x00006DAA, 0x00006DFF,
-    0x00009100, 0x00009155, 0x000091AA, 0x000091FF, 0x0000B600, 0x0000B655, 0x0000B6AA, 0x0000B6FF,
-    0x0000DA00, 0x0000DA55, 0x0000DAAA, 0x0000DAFF, 0x0000FF00, 0x0000FF55, 0x0000FFAA, 0x0000FFFF,
-    0x00240000, 0x00240055, 0x002400AA, 0x002400FF, 0x00242400, 0x00242455, 0x002424AA, 0x002424FF,
-    0x00244800, 0x00244855, 0x002448AA, 0x002448FF, 0x00246D00, 0x00246D55, 0x00246DAA, 0x00246DFF,
-    0x00249100, 0x00249155, 0x002491AA, 0x002491FF, 0x0024B600, 0x0024B655, 0x0024B6AA, 0x0024B6FF,
-    0x0024DA00, 0x0024DA55, 0x0024DAAA, 0x0024DAFF, 0x0024FF00, 0x0024FF55, 0x0024FFAA, 0x0024FFFF,
-    0x00480000, 0x00480055, 0x004800AA, 0x004800FF, 0x00482400, 0x00482455, 0x004824AA, 0x004824FF,
-    0x00484800, 0x00484855, 0x004848AA, 0x004848FF, 0x00486D00, 0x00486D55, 0x00486DAA, 0x00486DFF,
-    0x00489100, 0x00489155, 0x004891AA, 0x004891FF, 0x0048B600, 0x0048B655, 0x0048B6AA, 0x0048B6FF,
-    0x0048DA00, 0x0048DA55, 0x0048DAAA, 0x0048DAFF, 0x0048FF00, 0x0048FF55, 0x0048FFAA, 0x0048FFFF,
-    0x006D0000, 0x006D0055, 0x006D00AA, 0x006D00FF, 0x006D2400, 0x006D2455, 0x006D24AA, 0x006D24FF,
-    0x006D4800, 0x006D4855, 0x006D48AA, 0x006D48FF, 0x006D6D00, 0x006D6D55, 0x006D6DAA, 0x006D6DFF,
-    0x006D9100, 0x006D9155, 0x006D91AA, 0x006D91FF, 0x006DB600, 0x006DB655, 0x006DB6AA, 0x006DB6FF,
-    0x006DDA00, 0x006DDA55, 0x006DDAAA, 0x006DDAFF, 0x006DFF00, 0x006DFF55, 0x006DFFAA, 0x006DFFFF,
-    0x00910000, 0x00910055, 0x009100AA, 0x009100FF, 0x00912400, 0x00912455, 0x009124AA, 0x009124FF,
-    0x00914800, 0x00914855, 0x009148AA, 0x009148FF, 0x00916D00, 0x00916D55, 0x00916DAA, 0x00916DFF,
-    0x00919100, 0x00919155, 0x009191AA, 0x009191FF, 0x0091B600, 0x0091B655, 0x0091B6AA, 0x0091B6FF,
-    0x0091DA00, 0x0091DA55, 0x0091DAAA, 0x0091DAFF, 0x0091FF00, 0x0091FF55, 0x0091FFAA, 0x0091FFFF,
-    0x00B60000, 0x00B60055, 0x00B600AA, 0x00B600FF, 0x00B62400, 0x00B62455, 0x00B624AA, 0x00B624FF,
-    0x00B64800, 0x00B64855, 0x00B648AA, 0x00B648FF, 0x00B66D00, 0x00B66D55, 0x00B66DAA, 0x00B66DFF,
-    0x00B69100, 0x00B69155, 0x00B691AA, 0x00B691FF, 0x00B6B600, 0x00B6B655, 0x00B6B6AA, 0x00B6B6FF,
-    0x00B6DA00, 0x00B6DA55, 0x00B6DAAA, 0x00B6DAFF, 0x00B6FF00, 0x00B6FF55, 0x00B6FFAA, 0x00B6FFFF,
-    0x00DA0000, 0x00DA0055, 0x00DA00AA, 0x00DA00FF, 0x00DA2400, 0x00DA2455, 0x00DA24AA, 0x00DA24FF,
-    0x00DA4800, 0x00DA4855, 0x00DA48AA, 0x00DA48FF, 0x00DA6D00, 0x00DA6D55, 0x00DA6DAA, 0x00DA6DFF,
-    0x00DA9100, 0x00DA9155, 0x00DA91AA, 0x00DA91FF, 0x00DAB600, 0x00DAB655, 0x00DAB6AA, 0x00DAB6FF,
-    0x00DADA00, 0x00DADA55, 0x00DADAAA, 0x00DADAFF, 0x00DAFF00, 0x00DAFF55, 0x00DAFFAA, 0x00DAFFFF,
-    0x00FF0000, 0x00FF0055, 0x00FF00AA, 0x00FF00FF, 0x00FF2400, 0x00FF2455, 0x00FF24AA, 0x00FF24FF,
-    0x00FF4800, 0x00FF4855, 0x00FF48AA, 0x00FF48FF, 0x00FF6D00, 0x00FF6D55, 0x00FF6DAA, 0x00FF6DFF,
-    0x00FF9100, 0x00FF9155, 0x00FF91AA, 0x00FF91FF, 0x00FFB600, 0x00FFB655, 0x00FFB6AA, 0x00FFB6FF,
-    0x00FFDA00, 0x00FFDA55, 0x00FFDAAA, 0x00FFDAFF, 0x00FFFF00, 0x00FFFF55, 0x00FFFFAA, 0x00FFFFFF
-};
-
-//unsigned char r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue);
-unsigned char r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue, float gamma, float contrast);
+void init_color_lut(void);
+void init_gamma_contrast_lut(float gamma, float contrast);
 void floydSteinbergDither(uint8_t* data, int width, int height);
+uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue);
 
 int main(int argc, char* argv[])
 {
     FILE* fp;
+
+    uint8_t* pixel = NULL;
+    uint8_t* data = NULL;
+
+    uint8_t pixel332 = 0;
+
+    float gamma = 1.0f;             // Default gamma value
+    float contrast = 0.0f;          // Default contrast value
+
+    int dither = 0, debug = 0;      // Default modes set to false
+    int x = 0, y = 0, n = 0, _y = 0, _x = 0;
+
     char infilename[MAX_FILENAME_LENGTH] = { 0 };
     char outfilename[MAX_FILENAME_LENGTH] = { 0 };    
     char array_name[MAX_FILENAME_LENGTH] = { 0 };
-
-    int dither = 0;
-    int debug = 0;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
@@ -95,9 +68,25 @@ int main(int argc, char* argv[])
             dither = 1;
             printf("Dithering on\n");
         }
+        else if (strcmp(argv[i], "-g") == 0 && i + 1 < argc) {
+            gamma = (float)atof(argv[i + 1]);
+            printf("Gamma set to: %.2f\n", gamma);
+            i++;
+        }
+        else if (strcmp(argv[i], "-c") == 0 && i + 1 < argc) {
+            contrast = (float)atof(argv[i + 1]);
+            printf("Contrast set to: %.2f\n", contrast);
+            i++;
+        }
         else if (strcmp(argv[i], "-h") == 0) {
-            printf("--| Help |--\n");
-			printf("Usage: rgb332 -i <input file> -o <output file> [-d][-debug]\n");
+            printf("Usage: rgb332 -i <input file> -o <output file> [-d] [-debug] [-g <gamma>] [-c <contrast>]\n");
+            printf("  -i <input file>   : Specify input file\n");
+            printf("  -o <output file>  : Specify output file\n");
+            printf("  -d                : Enable dithering\n");
+            printf("  -debug            : Enable debug mode\n");
+            printf("  -g <gamma>        : Set gamma value (default: 1.0)\n");
+            printf("  -c <contrast>     : Set contrast value (default: 0.0)\n");
+            printf("  -h                : Display this help message\n");
             return 0;
         }
         else {
@@ -115,10 +104,11 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    int x, y, n;
-    uint8_t* data = stbi_load(infilename, &x, &y, &n, 3);
+    init_color_lut();
+    init_gamma_contrast_lut(gamma, contrast);
+    stbi_load(infilename, &x, &y, &n, 3);
 
-    if (data != NULL) {
+    if ((data = stbi_load(infilename, &x, &y, &n, 3)) != NULL) {
         if (dither) {
             floydSteinbergDither(data, x, y);
         }
@@ -151,19 +141,15 @@ int main(int argc, char* argv[])
 
             fprintf(fp, "static const uint8_t %s_data[%d] = {\n", array_name, x * y);
 
-            int _y = 0, _x = 0;
-            uint8_t pixel332 = 0;
-            uint8_t* pixel = NULL;
-
             for (_y = 0; _y < y; _y++) {
                 for (_x = 0; _x < x; _x++) {
                     pixel = data + (_y * x + _x) * 3;
-                    pixel332 = r8g8b8_to_r3g3b2(pixel[0], pixel[1], pixel[2], GAMMA, CONTRAST_FACTOR);
+                    pixel332 = r8g8b8_to_r3g3b2(pixel[0], pixel[1], pixel[2]);
                     fprintf(fp, "0x%.2X, ", pixel332);
                     if (debug) {
-                        pixel[0] = (r3g3b2_to_r8g8b8_lut[pixel332] >> 16) & 0xFF;
-                        pixel[1] = (r3g3b2_to_r8g8b8_lut[pixel332] >> 8)  & 0xFF;
-                        pixel[2] =  r3g3b2_to_r8g8b8_lut[pixel332]        & 0xFF;
+                        pixel[0] = (color_lut[pixel332] >> 16) & 0xFF;
+                        pixel[1] = (color_lut[pixel332] >> 8)  & 0xFF;
+                        pixel[2] =  color_lut[pixel332]        & 0xFF;
                     }
                 }
                 fprintf(fp, "\n");
@@ -197,55 +183,67 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-//unsigned char r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue) {
-//    return ((red & 0xE0) | ((green & 0xE0) >> 3) | (blue >> 6));
-//}
+uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue) {
+    uint8_t r_adj = gamma_contrast_lut[red];
+    uint8_t g_adj = gamma_contrast_lut[green];
+    uint8_t b_adj = gamma_contrast_lut[blue];
 
-unsigned char r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue, float gamma, float contrast) {
-    // Apply gamma correction
-    float r = pow(red / 255.0f, gamma) * 255.0f;
-    float g = pow(green / 255.0f, gamma) * 255.0f;
-    float b = pow(blue / 255.0f, gamma) * 255.0f;
-
-    // Apply contrast adjustment
-    float factor = (259.0f * (contrast + 255.0f)) / (255.0f * (259.0f - contrast));
-    r = factor * (r - 128.0f) + 128.0f;
-    g = factor * (g - 128.0f) + 128.0f;
-    b = factor * (b - 128.0f) + 128.0f;
-
-    // Clamp values to 0-255 range
-    r = fmaxf(0.0f, fminf(r, 255.0f));
-    g = fmaxf(0.0f, fminf(g, 255.0f));
-    b = fmaxf(0.0f, fminf(b, 255.0f));
-
-    // Convert back to uint8_t
-    uint8_t r_adj = (uint8_t)r;
-    uint8_t g_adj = (uint8_t)g;
-    uint8_t b_adj = (uint8_t)b;
-
-    // Perform the original conversion
     return ((r_adj & 0xE0) | ((g_adj & 0xE0) >> 3) | (b_adj >> 6));
 }
 
+void init_gamma_contrast_lut(float gamma, float contrast) {
+    int i = 0;
+    float value = 0.0f;
+    float factor = (259.0f * (contrast + 255.0f)) / (255.0f * (259.0f - contrast));
+    for (i = 0; i < 256; i++) {
+        value = (float)pow(i / 255.0f, gamma) * 255.0f;
+        value = factor * (value - 128.0f) + 128.0f;
+
+        gamma_contrast_lut[i] = (uint8_t)fmaxf(0.0f, fminf(value, 255.0f));
+    }
+}
+
+void init_color_lut(void) {
+    int i = 0;
+    uint8_t r3 = 0, g3 = 0, b2 = 0;
+    uint8_t r8 = 0, g8 = 0, b8 = 0;
+
+    for (i = 0; i < 256; i++) {
+        r3 = (i >> 5) & 0x7;
+        g3 = (i >> 2) & 0x7;
+        b2 = i & 0x3;
+
+        r8 = (r3 << 5) | (r3 << 2) | (r3 >> 1);
+        g8 = (g3 << 5) | (g3 << 2) | (g3 >> 1);
+        b8 = (b2 << 6) | (b2 << 4) | (b2 << 2) | b2;
+
+        color_lut[i] = (r8 << 16) | (g8 << 8) | b8;
+    }
+}
 
 void floydSteinbergDither(uint8_t* data, int width, int height) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            uint8_t oldR = data[(y * width + x) * 3];
-            uint8_t oldG = data[(y * width + x) * 3 + 1];
-            uint8_t oldB = data[(y * width + x) * 3 + 2];
+    int x = 0, y = 0;
+    uint8_t oldR = 0, oldG = 0, oldB = 0;
+    uint8_t newR = 0, newG = 0, newB = 0;
+    int errorR = 0, errorG = 0, errorB = 0;
 
-            uint8_t newR = (oldR & 0xE0);
-            uint8_t newG = (oldG & 0xE0);
-            uint8_t newB = (oldB & 0xC0);
+    for (y = 0; y < height; y++) {
+        for (x = 0; x < width; x++) {
+            oldR = data[(y * width + x) * 3];
+            oldG = data[(y * width + x) * 3 + 1];
+            oldB = data[(y * width + x) * 3 + 2];
+
+            newR = (oldR & 0xE0);
+            newG = (oldG & 0xE0);
+            newB = (oldB & 0xC0);
 
             data[(y * width + x) * 3]     = newR;
             data[(y * width + x) * 3 + 1] = newG;
             data[(y * width + x) * 3 + 2] = newB;
 
-            int errorR = oldR - newR;
-            int errorG = oldG - newG;
-            int errorB = oldB - newB;
+            errorR = oldR - newR;
+            errorG = oldG - newG;
+            errorB = oldB - newB;
 
             if (x < width - 1) {
                 data[(y * width + x + 1) * 3]     = min(255, max(0, data[(y * width + x + 1) * 3] + errorR * 7 / 16));
@@ -273,45 +271,3 @@ void floydSteinbergDither(uint8_t* data, int width, int height) {
         }
     }
 }
-
-//#include <stdio.h>
-//#include <stdint.h>
-//#include <math.h>
-//
-//#define GAMMA 1.0
-//#define CONTRAST_FACTOR 1.0
-//
-//uint32_t generate_corrected_color(uint8_t value, uint8_t max_value) {
-//    double normalized = (double)value / max_value;
-//    double corrected = pow(normalized, GAMMA) * 255 * CONTRAST_FACTOR;
-//    return (uint32_t)(fmin(fmax(corrected, 0), 255));
-//}
-//
-//void generate_brightness_corrected_lut(uint32_t lut[256]) {
-//    for (int i = 0; i < 256; i++) {
-//        uint8_t r = (i >> 5) & 0x07;
-//        uint8_t g = (i >> 2) & 0x07;
-//        uint8_t b = i & 0x03;
-//
-//        uint32_t r8 = generate_corrected_color(r, 7);
-//        uint32_t g8 = generate_corrected_color(g, 7);
-//        uint32_t b8 = generate_corrected_color(b, 3);
-//
-//        lut[i] = (r8 << 16) | (g8 << 8) | b8;
-//    }
-//}
-//
-//int main() {
-//    uint32_t corrected_lut[256];
-//    generate_brightness_corrected_lut(corrected_lut);
-//
-//    printf("static const uint32_t r3g3b2_to_r8g8b8_lut[256] = {\n");
-//    for (int i = 0; i < 256; i++) {
-//        printf("0x%08X", corrected_lut[i]);
-//        if (i < 255) printf(", ");
-//        if ((i + 1) % 8 == 0) printf("\n");
-//    }
-//    printf("};\n");
-//
-//    return 0;
-//}
