@@ -3,8 +3,6 @@
 
     Converts a RGB image to 8-bit RGB332. (needed for LT7683 TFT graphics controller)
 
-    Due to limited color space, all image corrections have a granular impact.
-
     MJM 2025
 
 */
@@ -38,17 +36,17 @@ int main(int argc, char* argv[])
 
     uint8_t pixel332 = 0;
 
-    float gamma      = 1.0f;        // Default gamma value
-    float contrast   = 0.0f;        // Default contrast value
-    float brightness = 1.0f;        // Local brightness variable
+    float gamma      = 1.0f;        // Default gamma value          [0.1f,    1.0f, 2.0f]
+    float contrast   = 0.0f;        // Default contrast value       [-100.0f, 0,0f, 100.0]
+    float brightness = 1.0f;        // Local brightness variable    [0.1f,    1.0f, 1.0f]
 
     int dither = 0, debug = 0;      // Default modes set to false
     int x = 0, y = 0, n = 0;
     int _y = 0, _x = 0;
 
-    char infilename[MAX_FILENAME_LENGTH] = { 0 };
+    char infilename[MAX_FILENAME_LENGTH]  = { 0 };
     char outfilename[MAX_FILENAME_LENGTH] = { 0 };    
-    char array_name[MAX_FILENAME_LENGTH] = { 0 };
+    char array_name[MAX_FILENAME_LENGTH]  = { 0 };
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
@@ -116,11 +114,13 @@ int main(int argc, char* argv[])
     stbi_load(infilename, &x, &y, &n, 3);
 
     if ((data = stbi_load(infilename, &x, &y, &n, 3)) != NULL) {
+        process_image(data, x, y, gamma, contrast, brightness);
+
+        if (debug) {
+            stbi_write_bmp("processed_image.bmp", x, y, 3, data);
+        }
+
         if (dither) {
-            process_image(data, x, y, gamma, contrast, brightness);
-            if (debug) {
-                stbi_write_bmp("processed_image.bmp", x, y, 3, data);
-            }
             floydSteinbergDither(data, x, y);
         }
 
