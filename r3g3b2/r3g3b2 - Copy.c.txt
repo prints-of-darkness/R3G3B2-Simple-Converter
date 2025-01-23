@@ -3,10 +3,10 @@
 
     Converts a RGB image to 8-bit RGB332. (needed for LT7683 TFT graphics controller)
 
-    Due to limited color space, all image corrections have a granular impact.
-
     MJM 2025
 
+    For checking image conversion see: https://notisrac.github.io/FileToCArray/
+           (outputs are almost the same, but not exactly the same)
 */
 
 #include <stdio.h>
@@ -22,12 +22,16 @@
 
 #define MAX_FILENAME_LENGTH 1024
 
-uint32_t color_lut[256]; //r3g3b2 to r8g8b8 LUT
+uint8_t gamma_contrast_lut[256];    //gamma_contrast_lut
+uint8_t brightness_lut[256];        //brightness_lut
+uint32_t color_lut[256];            //r3g3b2 to r8g8b8 LUT
 
 void init_color_lut(void);
+void init_brightness_lut(float brightness);
+void init_gamma_contrast_lut(float gamma, float contrast);
 void floydSteinbergDither(uint8_t* data, int width, int height);
-uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue, 
-    float gamma, float contrast, float brightness);
+uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue);
+//uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue, float brightness);
 
 int main(int argc, char* argv[])
 {
@@ -43,8 +47,7 @@ int main(int argc, char* argv[])
     float brightness = 1.0f;        // Local brightness variable
 
     int dither = 0, debug = 0;      // Default modes set to false
-    int x = 0, y = 0, n = 0;
-    int _y = 0, _x = 0;
+    int x = 0, y = 0, n = 0, _y = 0, _x = 0;
 
     char infilename[MAX_FILENAME_LENGTH] = { 0 };
     char outfilename[MAX_FILENAME_LENGTH] = { 0 };    
@@ -94,7 +97,6 @@ int main(int argc, char* argv[])
             printf("  -c <contrast>     : Set contrast value (default: 0.0)\n");
             printf("  -b <brightness>   : Set brightness value (default: 1.0)\n");
             printf("  -h                : Display this help message\n");
-            printf("Example: rgb332 -i tst.png -o tst.h -d -debug -g 1.0 -c 0.0 -b 1.0\n");
             return 0;
         }
         else {
@@ -113,6 +115,8 @@ int main(int argc, char* argv[])
     }
 
     init_color_lut();
+    init_brightness_lut(brightness);
+    init_gamma_contrast_lut(gamma, contrast);
 
     stbi_load(infilename, &x, &y, &n, 3);
 
@@ -152,14 +156,13 @@ int main(int argc, char* argv[])
             for (_y = 0; _y < y; _y++) {
                 for (_x = 0; _x < x; _x++) {
                     pixel = data + (_y * x + _x) * 3;
-                    pixel332 = r8g8b8_to_r3g3b2(pixel[0], pixel[1], pixel[2], 
-                        gamma, contrast, brightness);
-
+                    //pixel332 = r8g8b8_to_r3g3b2(pixel[0], pixel[1], pixel[2], brightness);
+                    pixel332 = r8g8b8_to_r3g3b2(pixel[0], pixel[1], pixel[2]);
                     fprintf(fp, "0x%.2X, ", pixel332);
                     if (debug) {
                         pixel[0] = (color_lut[pixel332] >> 16) & 0xFF;
-                        pixel[1] = (color_lut[pixel332] >> 8) & 0xFF;
-                        pixel[2] = color_lut[pixel332] & 0xFF;
+                        pixel[1] = (color_lut[pixel332] >> 8)  & 0xFF;
+                        pixel[2] =  color_lut[pixel332]        & 0xFF;
                     }
                 }
                 fprintf(fp, "\n");
@@ -193,41 +196,48 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue, 
-    float gamma, float contrast, float brightness) {
+//uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue) {
+//    uint8_t r_adj = gamma_contrast_lut[red];
+//    uint8_t g_adj = gamma_contrast_lut[green];
+//    uint8_t b_adj = gamma_contrast_lut[blue];
+//
+//    return ((r_adj & 0xE0) | ((g_adj & 0xE0) >> 3) | (b_adj >> 6));
+//}
 
-    float r_float = red / 255.0f;
-    float g_float = green / 255.0f;
-    float b_float = blue / 255.0f;
+uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue) {
+    uint8_t r_bright = brightness_lut[red];
+    uint8_t g_bright = brightness_lut[green];
+    uint8_t b_bright = brightness_lut[blue];
 
-    // Apply brightness
-    r_float *= brightness;
-    g_float *= brightness;
-    b_float *= brightness;
+    uint8_t r_adj = gamma_contrast_lut[r_bright];
+    uint8_t g_adj = gamma_contrast_lut[g_bright];
+    uint8_t b_adj = gamma_contrast_lut[b_bright];
 
-    // Apply gamma correction
-    r_float = powf(r_float, 1.0f / gamma);
-    g_float = powf(g_float, 1.0f / gamma);
-    b_float = powf(b_float, 1.0f / gamma);
-
-    // Apply contrast
-    float factor = (259.0f * (contrast + 255.0f)) / (255.0f * (259.0f - contrast));
-    r_float = factor * (r_float - 0.5f) + 0.5f;
-    g_float = factor * (g_float - 0.5f) + 0.5f;
-    b_float = factor * (b_float - 0.5f) + 0.5f;
-
-    // Clamp values
-    r_float = fmaxf(0.0f, fminf(r_float, 1.0f));
-    g_float = fmaxf(0.0f, fminf(g_float, 1.0f));
-    b_float = fmaxf(0.0f, fminf(b_float, 1.0f));
-
-    // Convert back to 8-bit values
-    uint8_t r_adj = (uint8_t)(r_float * 255.0f);
-    uint8_t g_adj = (uint8_t)(g_float * 255.0f);
-    uint8_t b_adj = (uint8_t)(b_float * 255.0f);
-
-    // Convert to R3G3B2
     return ((r_adj & 0xE0) | ((g_adj & 0xE0) >> 3) | (b_adj >> 6));
+}
+
+//uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue, float brightness) {
+//    uint8_t r_bright = (uint8_t)fmin(255, red * brightness);
+//    uint8_t g_bright = (uint8_t)fmin(255, green * brightness);
+//    uint8_t b_bright = (uint8_t)fmin(255, blue * brightness);
+//
+//    uint8_t r_adj = gamma_contrast_lut[r_bright];
+//    uint8_t g_adj = gamma_contrast_lut[g_bright];
+//    uint8_t b_adj = gamma_contrast_lut[b_bright];
+//
+//    return ((r_adj & 0xE0) | ((g_adj & 0xE0) >> 3) | (b_adj >> 6));
+//}
+
+void init_gamma_contrast_lut(float gamma, float contrast) {
+    int i = 0;
+    float value = 0.0f;
+    float factor = (259.0f * (contrast + 255.0f)) / (255.0f * (259.0f - contrast));
+    for (i = 0; i < 256; i++) {
+        value = (float)pow(i / 255.0f, gamma) * 255.0f;
+        value = factor * (value - 128.0f) + 128.0f;
+
+        gamma_contrast_lut[i] = (uint8_t)fmaxf(0.0f, fminf(value, 255.0f));
+    }
 }
 
 void init_color_lut(void) {
@@ -245,6 +255,13 @@ void init_color_lut(void) {
         b8 = (b2 << 6) | (b2 << 4) | (b2 << 2) | b2;
 
         color_lut[i] = (r8 << 16) | (g8 << 8) | b8;
+    }
+}
+
+void init_brightness_lut(float brightness) {
+    for (int i = 0; i < 256; i++) {
+        int adjusted = (int)(i * brightness);
+        brightness_lut[i] = (uint8_t)fmin(255, fmax(0, adjusted));
     }
 }
 
