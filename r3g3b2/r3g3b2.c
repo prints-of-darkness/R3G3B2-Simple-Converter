@@ -1,7 +1,7 @@
 /*
     rgb332.c
 
-    Converts a RGB image to 8-bit RGB332. (needed for LT7683 TFT graphics controller)
+    Converts an RGB image to 8bpp RGB332. (needed for LT7683 TFT graphics controller)
 
     MJM 2025
 
@@ -18,9 +18,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define MAX_FILENAME_LENGTH 1024
-
 #define LUT_SIZE 256
+#define MAX_FILENAME_LENGTH 1024
 
 uint8_t gamma_lut[LUT_SIZE];
 uint32_t color_lut[LUT_SIZE];
@@ -28,7 +27,6 @@ uint8_t contrast_brightness_lut[LUT_SIZE];
 
 void process_image_lut(uint8_t* data, int width, int height);
 void floydSteinbergDither(uint8_t* data, int width, int height);
-uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue);
 void initialize_luts(float gamma, float contrast, float brightness);
 
 int main(int argc, char* argv[])
@@ -40,15 +38,15 @@ int main(int argc, char* argv[])
 
     uint8_t pixel332 = 0;
 
-    float gamma      = 1.0f;        // Default gamma value          [0.8f,    1.0f, 2.0f]
-    float contrast   = 0.0f;        // Default contrast value       [-100.0f, 0,0f, 100.0f]
-    float brightness = 1.0f;        // Local brightness variable    [0.5f,    1.0f, 1.5f]
+    float gamma      = 1.0f;        // Default gamma value          [ 0.8f,    1.0f, 2.0f   ]
+    float contrast   = 0.0f;        // Default contrast value       [ -100.0f, 0,0f, 100.0f ]
+    float brightness = 1.0f;        // Local brightness variable    [ 0.5f,    1.0f, 1.5f   ]
 
     int dither = 0, debug = 0;      // Default modes set to false
     int x = 0, y = 0, n = 0;
     int _y = 0, _x = 0;
 
-    char infilename[MAX_FILENAME_LENGTH]  = { 0 };
+    char infilename[MAX_FILENAME_LENGTH]  = { 0 }; //.bmp, .jpg, .png
     char outfilename[MAX_FILENAME_LENGTH] = { 0 };    
     char array_name[MAX_FILENAME_LENGTH]  = { 0 };
 
@@ -115,8 +113,6 @@ int main(int argc, char* argv[])
     }
 
     initialize_luts(gamma, contrast, brightness);
-    stbi_load(infilename, &x, &y, &n, 3);
-
     if ((data = stbi_load(infilename, &x, &y, &n, 3)) != NULL) {
         process_image_lut(data, x, y);
 
@@ -159,12 +155,15 @@ int main(int argc, char* argv[])
             for (_y = 0; _y < y; _y++) {
                 for (_x = 0; _x < x; _x++) {
                     pixel = data + (_y * x + _x) * 3;
-                    pixel332 = r8g8b8_to_r3g3b2(pixel[0], pixel[1], pixel[2]);
+
+                    // convert 888 to 332
+                    pixel332 = ((pixel[0] & 0xE0) | ((pixel[1] & 0xE0) >> 3) | (pixel[2] >> 6));
                     fprintf(fp, "0x%.2X, ", pixel332);
                     if (debug) {
+                        // back convert to 888 for debug_image.bmp
                         pixel[0] = (color_lut[pixel332] >> 16) & 0xFF;
-                        pixel[1] = (color_lut[pixel332] >> 8) & 0xFF;
-                        pixel[2] =  color_lut[pixel332] & 0xFF;
+                        pixel[1] = (color_lut[pixel332] >> 8)  & 0xFF;
+                        pixel[2] =  color_lut[pixel332]        & 0xFF;
                     }
                 }
                 fprintf(fp, "\n");
@@ -198,11 +197,8 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue) {
-    return ((red & 0xE0) | ((green & 0xE0) >> 3) | (blue >> 6));
-}
-
 void initialize_luts(float gamma, float contrast, float brightness) {
+   
     uint8_t r3 = 0, g3 = 0, b2 = 0;
     uint8_t r8 = 0, g8 = 0, b8 = 0;
 
@@ -212,12 +208,12 @@ void initialize_luts(float gamma, float contrast, float brightness) {
     for (int i = 0; i < LUT_SIZE; i++) {
         value = i / 255.0f;
 
-        // Expand R3G3B2
+        // Expand to 888
         r3 = (i >> 5) & 0x7;
         g3 = (i >> 2) & 0x7;
         b2 = i & 0x3;
 
-        // Expand to 8-bit
+        // Prep for LUT
         r8 = (r3 << 5) | (r3 << 2) | (r3 >> 1);
         g8 = (g3 << 5) | (g3 << 2) | (g3 >> 1);
         b8 = (b2 << 6) | (b2 << 4) | (b2 << 2) | b2;
@@ -235,7 +231,7 @@ void initialize_luts(float gamma, float contrast, float brightness) {
         // Separate gamma LUT for flexibility
         gamma_lut[i] = (uint8_t)(powf(i / 255.0f, 1.0f / gamma) * 255.0f);
 
-        // assign 32bits to color LUT
+        // Assign 32bits to color LUT
         color_lut[i] = (r8 << 16) | (g8 << 8) | b8;
     }
 }
