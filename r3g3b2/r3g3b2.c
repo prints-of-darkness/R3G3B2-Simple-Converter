@@ -20,12 +20,16 @@
 
 #define MAX_FILENAME_LENGTH 1024
 
-uint32_t color_lut[256]; //r3g3b2 to r8g8b8 LUT
+#define LUT_SIZE 256
 
-void init_color_lut(void);
+uint8_t gamma_lut[LUT_SIZE];
+uint32_t color_lut[LUT_SIZE];
+uint8_t contrast_brightness_lut[LUT_SIZE];
+
+void process_image_lut(uint8_t* data, int width, int height);
 void floydSteinbergDither(uint8_t* data, int width, int height);
 uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue);
-void process_image(uint8_t* data, int width, int height, float gamma, float contrast, float brightness);
+void initialize_luts(float gamma, float contrast, float brightness);
 
 int main(int argc, char* argv[])
 {
@@ -36,9 +40,9 @@ int main(int argc, char* argv[])
 
     uint8_t pixel332 = 0;
 
-    float gamma      = 1.0f;        // Default gamma value          [0.1f,    1.0f, 2.0f]
-    float contrast   = 0.0f;        // Default contrast value       [-100.0f, 0,0f, 100.0]
-    float brightness = 1.0f;        // Local brightness variable    [0.1f,    1.0f, 1.0f]
+    float gamma      = 1.0f;        // Default gamma value          [0.8f,    1.0f, 2.0f]
+    float contrast   = 0.0f;        // Default contrast value       [-100.0f, 0,0f, 100.0f]
+    float brightness = 1.0f;        // Local brightness variable    [0.5f,    1.0f, 1.5f]
 
     int dither = 0, debug = 0;      // Default modes set to false
     int x = 0, y = 0, n = 0;
@@ -110,11 +114,11 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    init_color_lut();
+    initialize_luts(gamma, contrast, brightness);
     stbi_load(infilename, &x, &y, &n, 3);
 
     if ((data = stbi_load(infilename, &x, &y, &n, 3)) != NULL) {
-        process_image(data, x, y, gamma, contrast, brightness);
+        process_image_lut(data, x, y);
 
         if (debug) {
             stbi_write_bmp("processed_image.bmp", x, y, 3, data);
@@ -160,7 +164,7 @@ int main(int argc, char* argv[])
                     if (debug) {
                         pixel[0] = (color_lut[pixel332] >> 16) & 0xFF;
                         pixel[1] = (color_lut[pixel332] >> 8) & 0xFF;
-                        pixel[2] = color_lut[pixel332] & 0xFF;
+                        pixel[2] =  color_lut[pixel332] & 0xFF;
                     }
                 }
                 fprintf(fp, "\n");
@@ -198,69 +202,52 @@ uint8_t r8g8b8_to_r3g3b2(uint8_t red, uint8_t green, uint8_t blue) {
     return ((red & 0xE0) | ((green & 0xE0) >> 3) | (blue >> 6));
 }
 
-void init_color_lut(void) {
-    int i = 0;
+void initialize_luts(float gamma, float contrast, float brightness) {
     uint8_t r3 = 0, g3 = 0, b2 = 0;
     uint8_t r8 = 0, g8 = 0, b8 = 0;
 
-    for (i = 0; i < 256; i++) {
+    float value = 0;
+    float factor = (259.0f * (contrast + 255.0f)) / (255.0f * (259.0f - contrast));
+
+    for (int i = 0; i < LUT_SIZE; i++) {
+        value = i / 255.0f;
+
+        // Expand R3G3B2
         r3 = (i >> 5) & 0x7;
         g3 = (i >> 2) & 0x7;
         b2 = i & 0x3;
 
+        // Expand to 8-bit
         r8 = (r3 << 5) | (r3 << 2) | (r3 >> 1);
         g8 = (g3 << 5) | (g3 << 2) | (g3 >> 1);
         b8 = (b2 << 6) | (b2 << 4) | (b2 << 2) | b2;
 
+        // Gamma correction
+        value = powf(value, 1.0f / gamma);
+
+        // Brightness and contrast
+        value = factor * (value * brightness - 0.5f) + 0.5f;
+
+        // Clamp and convert back to 8-bit
+        value = fmaxf(0.0f, fminf(value, 1.0f));
+        contrast_brightness_lut[i] = (uint8_t)(value * 255.0f);
+
+        // Separate gamma LUT for flexibility
+        gamma_lut[i] = (uint8_t)(powf(i / 255.0f, 1.0f / gamma) * 255.0f);
+
+        // assign 32bits to color LUT
         color_lut[i] = (r8 << 16) | (g8 << 8) | b8;
     }
 }
 
-void process_image(uint8_t* data, int width, int height, float gamma, float contrast, float brightness) {
-    int x = 0, y = 0;
-    uint8_t oldR = 0, oldG = 0, oldB = 0;
-    uint8_t r_adj = 0, g_adj = 0, b_adj = 0;
-    float r_float = 0, g_float = 0, b_float = 0;
-    float factor = (259.0f * (contrast + 255.0f)) / (255.0f * (259.0f - contrast));
-
+void process_image_lut(uint8_t* data, int width, int height) {
+    int x = 0, y = 0, idx = 0;
     for (y = 0; y < height; y++) {
         for (x = 0; x < width; x++) {
-            oldR = data[(y * width + x) * 3];
-            oldG = data[(y * width + x) * 3 + 1];
-            oldB = data[(y * width + x) * 3 + 2];
-
-            r_float = oldR / 255.0f;
-            g_float = oldG / 255.0f;
-            b_float = oldB / 255.0f;
-
-            // Apply brightness
-            r_float *= brightness;
-            g_float *= brightness;
-            b_float *= brightness;
-
-            // Apply gamma correction
-            r_float = powf(r_float, 1.0f / gamma);
-            g_float = powf(g_float, 1.0f / gamma);
-            b_float = powf(b_float, 1.0f / gamma);
-
-            // Apply contrast
-            r_float = factor * (r_float - 0.5f) + 0.5f;
-            g_float = factor * (g_float - 0.5f) + 0.5f;
-            b_float = factor * (b_float - 0.5f) + 0.5f;
-
-            // Clamp values
-            r_float = fmaxf(0.0f, fminf(r_float, 1.0f));
-            g_float = fmaxf(0.0f, fminf(g_float, 1.0f));
-            b_float = fmaxf(0.0f, fminf(b_float, 1.0f));
-
-            // Convert back to 8-bit values
-            r_adj = (uint8_t)(r_float * 255.0f);
-            g_adj = (uint8_t)(g_float * 255.0f);
-            b_adj = (uint8_t)(b_float * 255.0f);
-
-            data[(y * width + x) * 3]     = r_adj;
-            data[(y * width + x) * 3 + 1] = g_adj;
-            data[(y * width + x) * 3 + 2] = b_adj;
+            idx = (y * width + x) * 3;
+            data[idx]     = contrast_brightness_lut[gamma_lut[data[idx]]];
+            data[idx + 1] = contrast_brightness_lut[gamma_lut[data[idx + 1]]];
+            data[idx + 2] = contrast_brightness_lut[gamma_lut[data[idx + 2]]];
         }
     }
 }
