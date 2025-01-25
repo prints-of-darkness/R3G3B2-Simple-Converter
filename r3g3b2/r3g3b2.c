@@ -15,7 +15,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "bayer32x32.h"     //bayer matrix
+#include "bayer16x16.h"     //bayer matrix
 #include "color_lut.h"      //color LUT
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -34,7 +34,7 @@ uint8_t contrast_brightness_lut[LUT_SIZE];      // Contrast and brightness corre
 // Dithering functions
 void jarvisDither(uint8_t* image, int width, int height);           // Jarvis dithering algorithm
 void atkinsonDither(uint8_t* data, int width, int height);          // Atkinson dithering algorithm
-void bayer32x32Dither(uint8_t* data, int width, int height);        // Bayer 32x32 dithering algorithm
+void bayer16x16Dither(uint8_t* data, int width, int height);        // Bayer 32x32 dithering algorithm
 void floydSteinbergDither(uint8_t* data, int width, int height);    // Floyd-Steinberg dithering algorithm
 
 void write_data_to_file(FILE* fp, const char* array_name, uint8_t* data, int width, int height);
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     float contrast = 0.0f;     // Default contrast value       [ -100.0f, 0,0f, 100.0f ]
     float brightness = 1.0f;   // Local brightness variable    [ 0.5f,    1.0f, 1.5f   ]
 
-    int dither_method = -1;    // 0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson 3: Bayer 32x32
+    int dither_method = -1;    // 0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson 3: Bayer 16x16
     int debug = 0;             // Debug mode set to false
     int x = 0, y = 0, n = 0;
 
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
             // Explain each option
             printf("  -i <input file>           : Specify input file\n");
             printf("  -o <output file>          : Specify output file\n");
-            printf("  -dm <method>              : Set dithering method (0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson, 3: Bayer 32x32)\n");
+            printf("  -dm <method>              : Set dithering method (0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson, 3: Bayer 16x16)\n");
             printf("  -debug <debug_filename>   : Enable debug mode and specify debug file prefix\n");
             printf("  -g <gamma>                : Set gamma value (default: 1.0)\n");
             printf("  -c <contrast>             : Set contrast value (default: 0.0)\n");
@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
                 atkinsonDither(data, x, y);
                 break;
             case 3: //Bayer 32x32 dithering
-                bayer32x32Dither(data, x, y);
+                bayer16x16Dither(data, x, y);
                 break;
             default: // Default to Floyd-Steinberg dithering
                 floydSteinbergDither(data, x, y);
@@ -533,7 +533,7 @@ void atkinsonDither(uint8_t* data, int width, int height) {
     return;
 }
 
-void bayer32x32Dither(uint8_t* data, int width, int height) {
+void bayer16x16Dither(uint8_t* data, int width, int height) {
     // Initialize variables for iterating over the image
     int y = 0, x = 0, idx = 0;
     uint8_t r = 0, g = 0, b = 0, threshold = 0;
@@ -550,7 +550,7 @@ void bayer32x32Dither(uint8_t* data, int width, int height) {
             b = data[idx + 2]; // Blue
 
             // Apply Bayer dithering using the 32x32 threshold matrix
-            threshold = bayer32x32[y % 32][x % 32];
+            threshold = BAYER_MATRIX_16X16[y % 16][x % 16];
 
             // Convert the RGB values to RGB332 format
             // If the pixel value is greater than the threshold, set it to the maximum value (0xE0 for R and G, 0xC0 for B)
