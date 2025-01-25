@@ -49,6 +49,7 @@ int main(int argc, char* argv[])
     char infilename[MAX_FILENAME_LENGTH]  = { 0 }; //.bmp, .jpg, .png
     char outfilename[MAX_FILENAME_LENGTH] = { 0 };    
     char array_name[MAX_FILENAME_LENGTH]  = { 0 };
+    char debug_filename[MAX_FILENAME_LENGTH] = { 0 };
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
@@ -61,9 +62,11 @@ int main(int argc, char* argv[])
             printf("Output file: %s\n", outfilename);
             i++;
         }
-        else if (strcmp(argv[i], "-debug") == 0) {
+        else if (strcmp(argv[i], "-debug") == 0 && i + 1 < argc) {
             debug = 1;
-            printf("Debug mode on\n");
+            strncpy(debug_filename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
+            printf("Debug mode on, debug file prefix: %s\n", debug_filename);
+            i++;
         }
         else if (strcmp(argv[i], "-d") == 0) {
             dither = 1;
@@ -85,16 +88,16 @@ int main(int argc, char* argv[])
             i++;
         }
         else if (strcmp(argv[i], "-h") == 0) {
-            printf("Usage: rgb332 -i <input file> -o <output file> [-d] [-debug] [-g <gamma>] [-c <contrast>] [-b <brightness>]\n");
-            printf("  -i <input file>   : Specify input file\n");
-            printf("  -o <output file>  : Specify output file\n");
-            printf("  -d                : Enable dithering\n");
-            printf("  -debug            : Enable debug mode\n");
-            printf("  -g <gamma>        : Set gamma value (default: 1.0)\n");
-            printf("  -c <contrast>     : Set contrast value (default: 0.0)\n");
-            printf("  -b <brightness>   : Set brightness value (default: 1.0)\n");
-            printf("  -h                : Display this help message\n");
-            printf("Example: rgb332 -i tst.png -o tst.h -d -debug -g 1.0 -c 0.0 -b 1.0\n");
+            printf("Usage: r3g3b2 -i <input file> -o <output file> [-d] [-debug <debug_filename>] [-g <gamma>] [-c <contrast>] [-b <brightness>]\n");
+            printf("  -i <input file>           : Specify input file\n");
+            printf("  -o <output file>          : Specify output file\n");
+            printf("  -d                        : Enable dithering\n");
+            printf("  -debug <debug_filename>   : Enable debug mode and specify debug file prefix\n");
+            printf("  -g <gamma>                : Set gamma value (default: 1.0)\n");
+            printf("  -c <contrast>             : Set contrast value (default: 0.0)\n");
+            printf("  -b <brightness>           : Set brightness value (default: 1.0)\n");
+            printf("  -h                        : Display this help message\n");
+            printf("Example: r3g3b2 -i tst.png -o tst.h -d -debug debug_output -g 1.0 -c 0.0 -b 1.0\n");
             return 0;
         }
         else {
@@ -117,7 +120,9 @@ int main(int argc, char* argv[])
         process_image_lut(data, x, y);
 
         if (debug) {
-            stbi_write_bmp("processed_image.bmp", x, y, 3, data);
+            char processed_filename[MAX_FILENAME_LENGTH];
+            snprintf(processed_filename, MAX_FILENAME_LENGTH, "%s_processed.bmp", debug_filename);
+            stbi_write_bmp(processed_filename, x, y, 3, data);
         }
 
         if (dither) {
@@ -184,7 +189,9 @@ int main(int argc, char* argv[])
         }
 
         if (debug) {
-            stbi_write_bmp("debug_image.bmp", x, y, 3, data);
+            char final_filename[MAX_FILENAME_LENGTH];
+            snprintf(final_filename, MAX_FILENAME_LENGTH, "%s_final.bmp", debug_filename);
+            stbi_write_bmp(final_filename, x, y, 3, data);
         }
 
         stbi_image_free(data);
