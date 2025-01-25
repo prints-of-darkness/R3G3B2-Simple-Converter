@@ -27,9 +27,46 @@ uint8_t gamma_lut[LUT_SIZE];                    // Gamma correction lookup table
 uint32_t color_lut[LUT_SIZE];                   // Color conversion lookup table
 uint8_t contrast_brightness_lut[LUT_SIZE];      // Contrast and brightness correction lookup table
 
+// Bayer 32 x 32 matrix
+const uint8_t bayer32x32[32][32] = {
+    {0, 192, 48, 240, 12, 204, 60, 252, 3, 195, 51, 243, 15, 207, 63, 255, 1, 193, 49, 241, 13, 205, 61, 253, 2, 194, 50, 242, 14, 206, 62, 254},
+    {128, 64, 176, 112, 140, 76, 188, 124, 131, 67, 179, 115, 143, 79, 191, 127, 129, 65, 177, 113, 141, 77, 189, 125, 130, 66, 178, 114, 142, 78, 190, 126},
+    {32, 224, 16, 208, 44, 236, 28, 220, 35, 227, 19, 211, 47, 239, 31, 223, 33, 225, 17, 209, 45, 237, 29, 221, 34, 226, 18, 210, 46, 238, 30, 222},
+    {160, 96, 144, 80, 172, 108, 156, 92, 163, 99, 147, 83, 175, 111, 159, 95, 161, 97, 145, 81, 173, 109, 157, 93, 162, 98, 146, 82, 174, 110, 158, 94},
+    {8, 200, 56, 248, 4, 196, 52, 244, 11, 203, 59, 251, 7, 199, 55, 247, 9, 201, 57, 249, 5, 197, 53, 245, 10, 202, 58, 250, 6, 198, 54, 246},
+    {136, 72, 184, 120, 132, 68, 180, 116, 139, 75, 187, 123, 135, 71, 183, 119, 137, 73, 185, 121, 133, 69, 181, 117, 138, 74, 186, 122, 134, 70, 182, 118},
+    {40, 232, 24, 216, 36, 228, 20, 212, 43, 235, 27, 219, 39, 231, 23, 215, 41, 233, 25, 217, 37, 229, 21, 213, 42, 234, 26, 218, 38, 230, 22, 214},
+    {168, 104, 152, 88, 164, 100, 148, 84, 171, 107, 155, 91, 167, 103, 151, 87, 169, 105, 153, 89, 165, 101, 149, 85, 170, 106, 154, 90, 166, 102, 150, 86},
+    {2, 194, 50, 242, 14, 206, 62, 254, 1, 193, 49, 241, 13, 205, 61, 253, 3, 195, 51, 243, 15, 207, 63, 255, 0, 192, 48, 240, 12, 204, 60, 252},
+    {130, 66, 178, 114, 142, 78, 190, 126, 129, 65, 177, 113, 141, 77, 189, 125, 131, 67, 179, 115, 143, 79, 191, 127, 128, 64, 176, 112, 140, 76, 188, 124},
+    {34, 226, 18, 210, 46, 238, 30, 222, 33, 225, 17, 209, 45, 237, 29, 221, 35, 227, 19, 211, 47, 239, 31, 223, 32, 224, 16, 208, 44, 236, 28, 220},
+    {162, 98, 146, 82, 174, 110, 158, 94, 161, 97, 145, 81, 173, 109, 157, 93, 163, 99, 147, 83, 175, 111, 159, 95, 160, 96, 144, 80, 172, 108, 156, 92},
+    {10, 202, 58, 250, 6, 198, 54, 246, 9, 201, 57, 249, 5, 197, 53, 245, 11, 203, 59, 251, 7, 199, 55, 247, 8, 200, 56, 248, 4, 196, 52, 244},
+    {138, 74, 186, 122, 134, 70, 182, 118, 137, 73, 185, 121, 133, 69, 181, 117, 139, 75, 187, 123, 135, 71, 183, 119, 136, 72, 184, 120, 132, 68, 180, 116},
+    {42, 234, 26, 218, 38, 230, 22, 214, 41, 233, 25, 217, 37, 229, 21, 213, 43, 235, 27, 219, 39, 231, 23, 215, 40, 232, 24, 216, 36, 228, 20, 212},
+    {170, 106, 154, 90, 166, 102, 150, 86, 169, 105, 153, 89, 165, 101, 149, 85, 171, 107, 155, 91, 167, 103, 151, 87, 168, 104, 152, 88, 164, 100, 148, 84},
+    {1, 193, 49, 241, 13, 205, 61, 253, 2, 194, 50, 242, 14, 206, 62, 254, 0, 192, 48, 240, 12, 204, 60, 252, 3, 195, 51, 243, 15, 207, 63, 255},
+    {129, 65, 177, 113, 141, 77, 189, 125, 130, 66, 178, 114, 142, 78, 190, 126, 128, 64, 176, 112, 140, 76, 188, 124, 131, 67, 179, 115, 143, 79, 191, 127},
+    {33, 225, 17, 209, 45, 237, 29, 221, 34, 226, 18, 210, 46, 238, 30, 222, 32, 224, 16, 208, 44, 236, 28, 220, 35, 227, 19, 211, 47, 239, 31, 223},
+    {161, 97, 145, 81, 173, 109, 157, 93, 162, 98, 146, 82, 174, 110, 158, 94, 160, 96, 144, 80, 172, 108, 156, 92, 163, 99, 147, 83, 175, 111, 159, 95},
+    {9, 201, 57, 249, 5, 197, 53, 245, 10, 202, 58, 250, 6, 198, 54, 246, 8, 200, 56, 248, 4, 196, 52, 244, 11, 203, 59, 251, 7, 199, 55, 247},
+    {137, 73, 185, 121, 133, 69, 181, 117, 138, 74, 186, 122, 134, 70, 182, 118, 136, 72, 184, 120, 132, 68, 180, 116, 139, 75, 187, 123, 135, 71, 183, 119},
+    {41, 233, 25, 217, 37, 229, 21, 213, 42, 234, 26, 218, 38, 230, 22, 214, 40, 232, 24, 216, 36, 228, 20, 212, 43, 235, 27, 219, 39, 231, 23, 215},
+    {169, 105, 153, 89, 165, 101, 149, 85, 170, 106, 154, 90, 166, 102, 150, 86, 168, 104, 152, 88, 164, 100, 148, 84, 171, 107, 155, 91, 167, 103, 151, 87},
+    {3, 195, 51, 243, 15, 207, 63, 255, 0, 192, 48, 240, 12, 204, 60, 252, 2, 194, 50, 242, 14, 206, 62, 254, 1, 193, 49, 241, 13, 205, 61, 253},
+    {131, 67, 179, 115, 143, 79, 191, 127, 128, 64, 176, 112, 140, 76, 188, 124, 130, 66, 178, 114, 142, 78, 190, 126, 129, 65, 177, 113, 141, 77, 189, 125},
+    {35, 227, 19, 211, 47, 239, 31, 223, 32, 224, 16, 208, 44, 236, 28, 220, 34, 226, 18, 210, 46, 238, 30, 222, 33, 225, 17, 209, 45, 237, 29, 221},
+    {163, 99, 147, 83, 175, 111, 159, 95, 160, 96, 144, 80, 172, 108, 156, 92, 162, 98, 146, 82, 174, 110, 158, 94, 161, 97, 145, 81, 173, 109, 157, 93},
+    {11, 203, 59, 251, 7, 199, 55, 247, 8, 200, 56, 248, 4, 196, 52, 244, 10, 202, 58, 250, 6, 198, 54, 246, 9, 201, 57, 249, 5, 197, 53, 245},
+    {139, 75, 187, 123, 135, 71, 183, 119, 136, 72, 184, 120, 132, 68, 180, 116, 138, 74, 186, 122, 134, 70, 182, 118, 137, 73, 185, 121, 133, 69, 181, 117},
+    {43, 235, 27, 219, 39, 231, 23, 215, 40, 232, 24, 216, 36, 228, 20, 212, 42, 234, 26, 218, 38, 230, 22, 214, 41, 233, 25, 217, 37, 229, 21, 213},
+    {171, 107, 155, 91, 167, 103, 151, 87, 168, 104, 152, 88, 164, 100, 148, 84, 170, 106, 154, 90, 166, 102, 150, 86, 169, 105, 153, 89, 165, 101, 149, 85}
+};
+
 // Dithering functions
 void jarvisDither(uint8_t* image, int width, int height);           // Jarvis dithering algorithm
 void atkinsonDither(uint8_t* data, int width, int height);          // Atkinson dithering algorithm
+void bayer32x32Dither(uint8_t* data, int width, int height);        // Bayer 32x32 dithering algorithm
 void process_image_lut(uint8_t* data, int width, int height);       // Process image using lookup tables
 void floydSteinbergDither(uint8_t* data, int width, int height);    // Floyd-Steinberg dithering algorithm
 
@@ -49,7 +86,7 @@ int main(int argc, char* argv[]) {
     float contrast = 0.0f;     // Default contrast value       [ -100.0f, 0,0f, 100.0f ]
     float brightness = 1.0f;   // Local brightness variable    [ 0.5f,    1.0f, 1.5f   ]
 
-    int dither_method = -1;    // 0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson
+    int dither_method = -1;    // 0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson 3: Bayer 32x32
     int debug = 0;             // Debug mode set to false
     int x = 0, y = 0, n = 0;
     int _y = 0, _x = 0;
@@ -111,7 +148,7 @@ int main(int argc, char* argv[]) {
             // Explain each option
             printf("  -i <input file>           : Specify input file\n");
             printf("  -o <output file>          : Specify output file\n");
-            printf("  -dm <method>              : Set dithering method (0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson)\n");
+            printf("  -dm <method>              : Set dithering method (0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson, 3: Bayer 32x32)\n");
             printf("  -debug <debug_filename>   : Enable debug mode and specify debug file prefix\n");
             printf("  -g <gamma>                : Set gamma value (default: 1.0)\n");
             printf("  -c <contrast>             : Set contrast value (default: 0.0)\n");
@@ -161,14 +198,17 @@ int main(int argc, char* argv[]) {
         // Apply dithering if a valid method is selected
         if (dither_method != -1) {
             switch (dither_method) {
-            case 0: // Floyd-Steinberg dithering
-                floydSteinbergDither(data, x, y);
-                break;
+            //case 0: // Floyd-Steinberg dithering
+            //    floydSteinbergDither(data, x, y);
+            //    break;
             case 1: // Jarvis dithering
                 jarvisDither(data, x, y);
                 break;
             case 2: // Atkinson dithering
                 atkinsonDither(data, x, y);
+                break;
+            case 3:
+                bayer32x32Dither(data, x, y);
                 break;
             default: // Default to Floyd-Steinberg dithering
                 floydSteinbergDither(data, x, y);
@@ -345,9 +385,9 @@ void floydSteinbergDither(uint8_t* data, int width, int height) {
             oldB = data[(y * width + x) * 3 + 2]; // Blue
 
             // Apply bit masks to reduce color depth
-            newR = (oldR & 0xE0); // Keep 5 most significant bits of Red
-            newG = (oldG & 0xE0); // Keep 5 most significant bits of Green
-            newB = (oldB & 0xC0); // Keep 4 most significant bits of Blue
+            newR = (oldR & 0xE0); // Keep 3 most significant bits of Red
+            newG = (oldG & 0xE0); // Keep 3 most significant bits of Green
+            newB = (oldB & 0xC0); // Keep 2 most significant bits of Blue
 
             // Update current pixel with new color values
             data[(y * width + x) * 3]     = newR;
@@ -420,14 +460,14 @@ void jarvisDither(uint8_t* data, int width, int height) {
     for (y = 0; y < height; y++) {
         for (x = 0; x < width; x++) {
             // Extract the RGB values from the data array
-            oldR = data[(y * width + x) * 3];   // Red
+            oldR = data[(y * width + x) * 3];     // Red
             oldG = data[(y * width + x) * 3 + 1]; // Green
             oldB = data[(y * width + x) * 3 + 2]; // Blue
 
             // Apply bit masks to reduce color depth
-            newR = (oldR & 0xE0); // Keep 5 most significant bits of Red
-            newG = (oldG & 0xE0); // Keep 5 most significant bits of Green
-            newB = (oldB & 0xC0); // Keep 4 most significant bits of Blue
+            newR = (oldR & 0xE0); // Keep 3 most significant bits of Red
+            newG = (oldG & 0xE0); // Keep 3 most significant bits of Green
+            newB = (oldB & 0xC0); // Keep 2 most significant bits of Blue
 
             // Update current pixel with new color values
             data[(y * width + x) * 3]     = newR;
@@ -476,14 +516,14 @@ void atkinsonDither(uint8_t* data, int width, int height) {
     for (y = 0; y < height; y++) {
         for (x = 0; x < width; x++) {
             // Extract the RGB values from the data array
-            oldR = data[(y * width + x) * 3];   // Red
+            oldR = data[(y * width + x) * 3];     // Red
             oldG = data[(y * width + x) * 3 + 1]; // Green
             oldB = data[(y * width + x) * 3 + 2]; // Blue
 
             // Apply bit masks to reduce color depth
-            newR = (oldR & 0xE0); // Keep 5 most significant bits of Red
-            newG = (oldG & 0xE0); // Keep 5 most significant bits of Green
-            newB = (oldB & 0xC0); // Keep 4 most significant bits of Blue
+            newR = (oldR & 0xE0); // Keep 3 most significant bits of Red
+            newG = (oldG & 0xE0); // Keep 3 most significant bits of Green
+            newB = (oldB & 0xC0); // Keep 2 most significant bits of Blue
 
             // Update current pixel with new color values
             data[(y * width + x) * 3]     = newR;
@@ -535,6 +575,40 @@ void atkinsonDither(uint8_t* data, int width, int height) {
                 data[((y + 2) * width + x) * 3 + 1] = min(255, max(0, data[((y + 2) * width + x) * 3 + 1] + errorG));
                 data[((y + 2) * width + x) * 3 + 2] = min(255, max(0, data[((y + 2) * width + x) * 3 + 2] + errorB));
             }
+        }
+    }
+}
+
+void bayer32x32Dither(uint8_t* data, int width, int height) {
+    // Initialize variables for iterating over the image
+    int y = 0, x = 0, idx = 0;
+    uint8_t r = 0, g = 0, b = 0, threshold = 0;
+
+    // Iterate over each pixel in the image
+    for (y = 0; y < height; y++) {
+        for (x = 0; x < width; x++) {
+            // Calculate the index of the current pixel in the data array
+            idx = (y * width + x) * 3;
+
+            // Extract the RGB values from the data array
+            r = data[idx];     // Red
+            g = data[idx + 1]; // Green
+            b = data[idx + 2]; // Blue
+
+            // Apply Bayer dithering using the 32x32 threshold matrix
+            threshold = bayer32x32[y % 32][x % 32];
+
+            // Convert the RGB values to RGB332 format
+            // If the pixel value is greater than the threshold, set it to the maximum value (0xE0 for R and G, 0xC0 for B)
+            // Otherwise, set it to 0
+            r = (r > threshold) ? 0xE0 : 0;
+            g = (g > threshold) ? 0xE0 : 0;
+            b = (b > threshold) ? 0xC0 : 0;
+
+            // Store the resulting RGB332 values back in the data array
+            data[idx] = r;
+            data[idx + 1] = g;
+            data[idx + 2] = b;
         }
     }
 }
