@@ -1,0 +1,60 @@
+
+/****************** Used for outputting color table ******************/
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+#define LUT_SIZE 256
+
+uint32_t color_lut[LUT_SIZE];
+
+void initialize_color_lut() {
+    for (int i = 0; i < LUT_SIZE; i++) {
+        uint8_t r3 = (i >> 5) & 0x7;
+        uint8_t g3 = (i >> 2) & 0x7;
+        uint8_t b2 = i & 0x3;
+        uint8_t r8 = (r3 << 5) | (r3 << 2) | (r3 >> 1);
+        uint8_t g8 = (g3 << 5) | (g3 << 2) | (g3 >> 1);
+        uint8_t b8 = (b2 << 6) | (b2 << 4) | (b2 << 2) | b2;
+        color_lut[i] = (r8 << 16) | (g8 << 8) | b8;
+    }
+}
+
+void create_color_table_bitmap() {
+    int swatch_width = 16;
+    int swatch_height = 4;
+    int width = 16 * swatch_width;
+    int height = 16 * swatch_height;
+    uint8_t* bitmap_data = NULL;
+    if ((bitmap_data = (uint8_t*)malloc(width * height * 3)) != NULL) {
+        for (int i = 0; i < LUT_SIZE; i++) {
+            int base_x = (i % 16) * swatch_width;
+            int base_y = (i / 16) * swatch_height;
+
+            for (int dy = 0; dy < swatch_height; dy++) {
+                for (int dx = 0; dx < swatch_width; dx++) {
+                    int x = base_x + dx;
+                    int y = base_y + dy;
+                    int idx = (y * width + x) * 3;
+
+                    bitmap_data[idx] = (color_lut[i] >> 16) & 0xFF; // Red
+                    bitmap_data[idx + 1] = (color_lut[i] >> 8) & 0xFF; // Green
+                    bitmap_data[idx + 2] = color_lut[i] & 0xFF; // Blue
+                }
+            }
+        }
+    }
+
+    stbi_write_bmp("color_table_16x4.bmp", width, height, 3, bitmap_data);
+    free(bitmap_data);
+}
+
+int main() {
+    initialize_color_lut();
+    create_color_table_bitmap();
+    printf("Color table bitmap created: color_table_16x4.bmp\n");
+    return 0;
+}

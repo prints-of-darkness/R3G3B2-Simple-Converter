@@ -1,5 +1,5 @@
 /*
-    rgb332.c
+    r3g3b2.c
 
     Converts an RGB image to 8bpp RGB332. (needed for LT7683 TFT graphics controller)
 
