@@ -5,6 +5,8 @@
 
     MJM 2025
 
+    also, remember to get a roast beef sandwich this week, its imperative.
+
 */
 
 #include <stdio.h>
@@ -12,6 +14,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+#include "bayer32x32.h"     //bayer matrix
+#include "color_lut.h"      //color LUT
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -24,63 +29,23 @@
 
 // Lookup tables for color conversion
 uint8_t gamma_lut[LUT_SIZE];                    // Gamma correction lookup table
-uint32_t color_lut[LUT_SIZE];                   // Color conversion lookup table
 uint8_t contrast_brightness_lut[LUT_SIZE];      // Contrast and brightness correction lookup table
-
-// Bayer 32 x 32 matrix
-const uint8_t bayer32x32[32][32] = {
-    {0, 192, 48, 240, 12, 204, 60, 252, 3, 195, 51, 243, 15, 207, 63, 255, 1, 193, 49, 241, 13, 205, 61, 253, 2, 194, 50, 242, 14, 206, 62, 254},
-    {128, 64, 176, 112, 140, 76, 188, 124, 131, 67, 179, 115, 143, 79, 191, 127, 129, 65, 177, 113, 141, 77, 189, 125, 130, 66, 178, 114, 142, 78, 190, 126},
-    {32, 224, 16, 208, 44, 236, 28, 220, 35, 227, 19, 211, 47, 239, 31, 223, 33, 225, 17, 209, 45, 237, 29, 221, 34, 226, 18, 210, 46, 238, 30, 222},
-    {160, 96, 144, 80, 172, 108, 156, 92, 163, 99, 147, 83, 175, 111, 159, 95, 161, 97, 145, 81, 173, 109, 157, 93, 162, 98, 146, 82, 174, 110, 158, 94},
-    {8, 200, 56, 248, 4, 196, 52, 244, 11, 203, 59, 251, 7, 199, 55, 247, 9, 201, 57, 249, 5, 197, 53, 245, 10, 202, 58, 250, 6, 198, 54, 246},
-    {136, 72, 184, 120, 132, 68, 180, 116, 139, 75, 187, 123, 135, 71, 183, 119, 137, 73, 185, 121, 133, 69, 181, 117, 138, 74, 186, 122, 134, 70, 182, 118},
-    {40, 232, 24, 216, 36, 228, 20, 212, 43, 235, 27, 219, 39, 231, 23, 215, 41, 233, 25, 217, 37, 229, 21, 213, 42, 234, 26, 218, 38, 230, 22, 214},
-    {168, 104, 152, 88, 164, 100, 148, 84, 171, 107, 155, 91, 167, 103, 151, 87, 169, 105, 153, 89, 165, 101, 149, 85, 170, 106, 154, 90, 166, 102, 150, 86},
-    {2, 194, 50, 242, 14, 206, 62, 254, 1, 193, 49, 241, 13, 205, 61, 253, 3, 195, 51, 243, 15, 207, 63, 255, 0, 192, 48, 240, 12, 204, 60, 252},
-    {130, 66, 178, 114, 142, 78, 190, 126, 129, 65, 177, 113, 141, 77, 189, 125, 131, 67, 179, 115, 143, 79, 191, 127, 128, 64, 176, 112, 140, 76, 188, 124},
-    {34, 226, 18, 210, 46, 238, 30, 222, 33, 225, 17, 209, 45, 237, 29, 221, 35, 227, 19, 211, 47, 239, 31, 223, 32, 224, 16, 208, 44, 236, 28, 220},
-    {162, 98, 146, 82, 174, 110, 158, 94, 161, 97, 145, 81, 173, 109, 157, 93, 163, 99, 147, 83, 175, 111, 159, 95, 160, 96, 144, 80, 172, 108, 156, 92},
-    {10, 202, 58, 250, 6, 198, 54, 246, 9, 201, 57, 249, 5, 197, 53, 245, 11, 203, 59, 251, 7, 199, 55, 247, 8, 200, 56, 248, 4, 196, 52, 244},
-    {138, 74, 186, 122, 134, 70, 182, 118, 137, 73, 185, 121, 133, 69, 181, 117, 139, 75, 187, 123, 135, 71, 183, 119, 136, 72, 184, 120, 132, 68, 180, 116},
-    {42, 234, 26, 218, 38, 230, 22, 214, 41, 233, 25, 217, 37, 229, 21, 213, 43, 235, 27, 219, 39, 231, 23, 215, 40, 232, 24, 216, 36, 228, 20, 212},
-    {170, 106, 154, 90, 166, 102, 150, 86, 169, 105, 153, 89, 165, 101, 149, 85, 171, 107, 155, 91, 167, 103, 151, 87, 168, 104, 152, 88, 164, 100, 148, 84},
-    {1, 193, 49, 241, 13, 205, 61, 253, 2, 194, 50, 242, 14, 206, 62, 254, 0, 192, 48, 240, 12, 204, 60, 252, 3, 195, 51, 243, 15, 207, 63, 255},
-    {129, 65, 177, 113, 141, 77, 189, 125, 130, 66, 178, 114, 142, 78, 190, 126, 128, 64, 176, 112, 140, 76, 188, 124, 131, 67, 179, 115, 143, 79, 191, 127},
-    {33, 225, 17, 209, 45, 237, 29, 221, 34, 226, 18, 210, 46, 238, 30, 222, 32, 224, 16, 208, 44, 236, 28, 220, 35, 227, 19, 211, 47, 239, 31, 223},
-    {161, 97, 145, 81, 173, 109, 157, 93, 162, 98, 146, 82, 174, 110, 158, 94, 160, 96, 144, 80, 172, 108, 156, 92, 163, 99, 147, 83, 175, 111, 159, 95},
-    {9, 201, 57, 249, 5, 197, 53, 245, 10, 202, 58, 250, 6, 198, 54, 246, 8, 200, 56, 248, 4, 196, 52, 244, 11, 203, 59, 251, 7, 199, 55, 247},
-    {137, 73, 185, 121, 133, 69, 181, 117, 138, 74, 186, 122, 134, 70, 182, 118, 136, 72, 184, 120, 132, 68, 180, 116, 139, 75, 187, 123, 135, 71, 183, 119},
-    {41, 233, 25, 217, 37, 229, 21, 213, 42, 234, 26, 218, 38, 230, 22, 214, 40, 232, 24, 216, 36, 228, 20, 212, 43, 235, 27, 219, 39, 231, 23, 215},
-    {169, 105, 153, 89, 165, 101, 149, 85, 170, 106, 154, 90, 166, 102, 150, 86, 168, 104, 152, 88, 164, 100, 148, 84, 171, 107, 155, 91, 167, 103, 151, 87},
-    {3, 195, 51, 243, 15, 207, 63, 255, 0, 192, 48, 240, 12, 204, 60, 252, 2, 194, 50, 242, 14, 206, 62, 254, 1, 193, 49, 241, 13, 205, 61, 253},
-    {131, 67, 179, 115, 143, 79, 191, 127, 128, 64, 176, 112, 140, 76, 188, 124, 130, 66, 178, 114, 142, 78, 190, 126, 129, 65, 177, 113, 141, 77, 189, 125},
-    {35, 227, 19, 211, 47, 239, 31, 223, 32, 224, 16, 208, 44, 236, 28, 220, 34, 226, 18, 210, 46, 238, 30, 222, 33, 225, 17, 209, 45, 237, 29, 221},
-    {163, 99, 147, 83, 175, 111, 159, 95, 160, 96, 144, 80, 172, 108, 156, 92, 162, 98, 146, 82, 174, 110, 158, 94, 161, 97, 145, 81, 173, 109, 157, 93},
-    {11, 203, 59, 251, 7, 199, 55, 247, 8, 200, 56, 248, 4, 196, 52, 244, 10, 202, 58, 250, 6, 198, 54, 246, 9, 201, 57, 249, 5, 197, 53, 245},
-    {139, 75, 187, 123, 135, 71, 183, 119, 136, 72, 184, 120, 132, 68, 180, 116, 138, 74, 186, 122, 134, 70, 182, 118, 137, 73, 185, 121, 133, 69, 181, 117},
-    {43, 235, 27, 219, 39, 231, 23, 215, 40, 232, 24, 216, 36, 228, 20, 212, 42, 234, 26, 218, 38, 230, 22, 214, 41, 233, 25, 217, 37, 229, 21, 213},
-    {171, 107, 155, 91, 167, 103, 151, 87, 168, 104, 152, 88, 164, 100, 148, 84, 170, 106, 154, 90, 166, 102, 150, 86, 169, 105, 153, 89, 165, 101, 149, 85}
-};
 
 // Dithering functions
 void jarvisDither(uint8_t* image, int width, int height);           // Jarvis dithering algorithm
 void atkinsonDither(uint8_t* data, int width, int height);          // Atkinson dithering algorithm
 void bayer32x32Dither(uint8_t* data, int width, int height);        // Bayer 32x32 dithering algorithm
-void process_image_lut(uint8_t* data, int width, int height);       // Process image using lookup tables
 void floydSteinbergDither(uint8_t* data, int width, int height);    // Floyd-Steinberg dithering algorithm
 
-// Lookup table initialization function
+void write_data_to_file(FILE* fp, const char* array_name, uint8_t* data, int width, int height);
+
+void process_image_lut(uint8_t* data, int width, int height);        // Process image using lookup tables
 void initialize_luts(float gamma, float contrast, float brightness); // Initialize lookup tables for color conversion
 
 int main(int argc, char* argv[]) {
 
     FILE* fp;
-
-    uint8_t* pixel = NULL;
     uint8_t* data = NULL;
-
-    uint8_t pixel332 = 0;
 
     float gamma = 1.0f;        // Default gamma value          [ 0.8f,    1.0f, 2.0f   ]
     float contrast = 0.0f;     // Default contrast value       [ -100.0f, 0,0f, 100.0f ]
@@ -89,7 +54,6 @@ int main(int argc, char* argv[]) {
     int dither_method = -1;    // 0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson 3: Bayer 32x32
     int debug = 0;             // Debug mode set to false
     int x = 0, y = 0, n = 0;
-    int _y = 0, _x = 0;
 
     char infilename[MAX_FILENAME_LENGTH] = { 0 }; //.bmp, .jpg, .png
     char outfilename[MAX_FILENAME_LENGTH] = { 0 };
@@ -155,14 +119,13 @@ int main(int argc, char* argv[]) {
             printf("  -b <brightness>           : Set brightness value (default: 1.0)\n");
             printf("  -h                        : Display this help message\n");
             // Provide an example usage
-            printf("Example: r3g3b2 -i tst.png -o tst.h -d -debug debug_output -g 1.0 -c 0.0 -b 1.0\n");
+            printf("Example: r3g3b2 -i tst.png -o tst.h -dm 0 -debug debug_output -g 1.0 -c 0.0 -b 1.0\n");
             // Exit the program after displaying the help message
             return 0;
         }
         // Handle unknown options
         else {
-            // Print an error message for unknown options
-            printf("Unknown option: %s\n", argv[i]);
+            printf("Unknown option: %s\n", argv[i]); // Print an error message for unknown options
         }
     }
 
@@ -178,13 +141,11 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Initialize lookup tables for gamma, contrast, and brightness adjustments
-    initialize_luts(gamma, contrast, brightness);
-
     // Load image data from file using stb_image library
     if ((data = stbi_load(infilename, &x, &y, &n, 3)) != NULL) {
-        // Process image data using lookup tables
-        process_image_lut(data, x, y);
+        
+        initialize_luts(gamma, contrast, brightness);   // Initialize lookup tables for gamma, contrast, and brightness adjustments
+        process_image_lut(data, x, y);                  // Process image data using lookup tables
 
         // If debug mode is enabled, save processed image to file
         if (debug) {
@@ -198,16 +159,13 @@ int main(int argc, char* argv[]) {
         // Apply dithering if a valid method is selected
         if (dither_method != -1) {
             switch (dither_method) {
-            //case 0: // Floyd-Steinberg dithering
-            //    floydSteinbergDither(data, x, y);
-            //    break;
             case 1: // Jarvis dithering
                 jarvisDither(data, x, y);
                 break;
             case 2: // Atkinson dithering
                 atkinsonDither(data, x, y);
                 break;
-            case 3:
+            case 3: //Bayer 32x32 dithering
                 bayer32x32Dither(data, x, y);
                 break;
             default: // Default to Floyd-Steinberg dithering
@@ -217,78 +175,18 @@ int main(int argc, char* argv[]) {
         }
 
         // Open the output file and extract the filename without extension
-        fp = fopen(outfilename, "w");
-        strncpy(array_name, outfilename, MAX_FILENAME_LENGTH - 1);
-        char* dot = strrchr(array_name, '.');
-        if (dot) *dot = '\0';
+        if ((fp = fopen(outfilename, "w")) != NULL) {
+            strncpy(array_name, outfilename, MAX_FILENAME_LENGTH - 1);
+            char* dot = strrchr(array_name, '.');
+            if (dot) *dot = '\0';
 
-        if (fp != NULL) {
-            fprintf(fp, "#ifndef %s_H\n", array_name);
-            fprintf(fp, "#define %s_H\n\n", array_name);
-            fprintf(fp, "#include \"image_types.h\"\n\n");
-
-            // Output image_types.h content as a comment
-            fprintf(fp, "/*\n");
-            fprintf(fp, "Contents of image_types.h:\n\n");
-            fprintf(fp, "#ifndef IMAGE_TYPES_H\n");
-            fprintf(fp, "#define IMAGE_TYPES_H\n\n");
-            fprintf(fp, "#include <stdint.h>\n\n");
-            fprintf(fp, "#define RGB332_FORMAT_ID 0x332\n\n");
-            fprintf(fp, "typedef struct {\n");
-            fprintf(fp, "    const uint8_t* data;\n");
-            fprintf(fp, "    uint16_t width;\n");
-            fprintf(fp, "    uint16_t height;\n");
-            fprintf(fp, "    uint16_t format_id;\n");
-            fprintf(fp, "} Image_t;\n\n");
-            fprintf(fp, "#endif // IMAGE_TYPES_H\n");
-            fprintf(fp, "*/\n\n");
-
-            fprintf(fp, "static const uint8_t %s_data[%d] = {\n", array_name, x * y);
-
-            // Iterate over each pixel in the image
-            for (_y = 0; _y < y; _y++) {
-                for (_x = 0; _x < x; _x++) {
-                    // Calculate the memory address of the current pixel
-                    pixel = data + (_y * x + _x) * 3;
-
-                    // Convert 24-bit RGB (888) to 8-bit RGB (332)
-                    // by masking and shifting the color components
-                    pixel332 = ((pixel[0] & 0xE0) | ((pixel[1] & 0xE0) >> 3) | (pixel[2] >> 6));
-
-                    // Print the converted pixel value in hexadecimal format
-                    fprintf(fp, "0x%.2X, ", pixel332);
-
-                    // If debug mode is enabled, back-convert the pixel to 24-bit RGB (888)
-                    // for debugging purposes
-                    if (debug) {
-                        // Use the color lookup table to convert the 8-bit RGB (332) value back to 24-bit RGB (888)
-                        pixel[0] = (color_lut[pixel332] >> 16) & 0xFF;
-                        pixel[1] = (color_lut[pixel332] >> 8) & 0xFF;
-                        pixel[2] = color_lut[pixel332] & 0xFF;
-                    }
-                }
-                // Print a newline character after each row of pixels
-                fprintf(fp, "\n");
-            }
-
-            fprintf(fp, "};\n\n");
-            fprintf(fp, "static const Image_t %s_image = {\n", array_name);
-            fprintf(fp, "    .data = %s_data,\n", array_name);
-            fprintf(fp, "    .width = %d,\n", x);
-            fprintf(fp, "    .height = %d,\n", y);
-            fprintf(fp, "    .format_id = RGB332_FORMAT_ID\n");
-            fprintf(fp, "};\n\n");
-            fprintf(fp, "#endif // %s_H\n", array_name);
+            write_data_to_file(fp, array_name, data, x, y);
             fclose(fp);
         }
-        // Handle image loading and output file opening errors
-        if (data == NULL) {
-            printf("Failed to load image.\n");
-            return 1;
-        }
-
-        if (fp == NULL) {
+        else {
             printf("Failed to open output file.\n");
+            stbi_image_free(data);
+            return 1;
         }
 
         // Write final image to file in debug mode
@@ -300,17 +198,17 @@ int main(int argc, char* argv[]) {
 
         // Free allocated image data
         stbi_image_free(data);
-
         return 0;
     }
+    else {
+        printf("Failed to load image.\n");
+    }
+
+	return 1;
 }
 
 // Function to initialize the look-up tables (LUTs) for color conversion
 void initialize_luts(float gamma, float contrast, float brightness) {
-   
-    // Initialize variables to store 3-bit and 8-bit color values
-    uint8_t r3 = 0, g3 = 0, b2 = 0;
-    uint8_t r8 = 0, g8 = 0, b8 = 0;
 
     // Calculate the contrast factor
     float value = 0;
@@ -320,16 +218,6 @@ void initialize_luts(float gamma, float contrast, float brightness) {
     for (int i = 0; i < LUT_SIZE; i++) {
         // Normalize the color value to the range [0, 1]
         value = i / 255.0f;
-
-        // Expand the 8-bit color value to 3-bit red, 3-bit green, and 2-bit blue components
-        r3 = (i >> 5) & 0x7;
-        g3 = (i >> 2) & 0x7;
-        b2 = i & 0x3;
-
-        // Convert the 3-bit color components to 8-bit values
-        r8 = (r3 << 5) | (r3 << 2) | (r3 >> 1);
-        g8 = (g3 << 5) | (g3 << 2) | (g3 >> 1);
-        b8 = (b2 << 6) | (b2 << 4) | (b2 << 2) | b2;
 
         // Apply gamma correction to the normalized color value
         value = powf(value, 1.0f / gamma);
@@ -343,10 +231,8 @@ void initialize_luts(float gamma, float contrast, float brightness) {
 
         // Create a separate gamma LUT for flexibility
         gamma_lut[i] = (uint8_t)(powf(i / 255.0f, 1.0f / gamma) * 255.0f);
-
-        // Assign the 32-bit color value to the color LUT
-        color_lut[i] = (r8 << 16) | (g8 << 8) | b8;
     }
+    return;
 }
 
 void process_image_lut(uint8_t* data, int width, int height) {
@@ -367,7 +253,72 @@ void process_image_lut(uint8_t* data, int width, int height) {
             data[idx + 2] = contrast_brightness_lut[gamma_lut[data[idx + 2]]];
         }
     }
+    return;
 }
+
+void write_data_to_file(FILE* fp, const char* array_name, uint8_t* data, int width, int height)
+{
+    uint8_t pixel332 = 0;
+    uint8_t* pixel = NULL;
+    int _y = 0, _x = 0;
+
+    fprintf(fp, "#ifndef %s_H\n", array_name);
+    fprintf(fp, "#define %s_H\n\n", array_name);
+    fprintf(fp, "#include \"image_types.h\"\n\n");
+
+    // Output image_types.h content as a comment
+    fprintf(fp, "/*\n");
+    fprintf(fp, "Contents of image_types.h:\n\n");
+    fprintf(fp, "#ifndef IMAGE_TYPES_H\n");
+    fprintf(fp, "#define IMAGE_TYPES_H\n\n");
+    fprintf(fp, "#include <stdint.h>\n\n");
+    fprintf(fp, "#define RGB332_FORMAT_ID 0x332\n\n");
+    fprintf(fp, "typedef struct {\n");
+    fprintf(fp, "    const uint8_t* data;\n");
+    fprintf(fp, "    uint16_t width;\n");
+    fprintf(fp, "    uint16_t height;\n");
+    fprintf(fp, "    uint16_t format_id;\n");
+    fprintf(fp, "} Image_t;\n\n");
+    fprintf(fp, "#endif // IMAGE_TYPES_H\n");
+    fprintf(fp, "*/\n\n");
+
+    fprintf(fp, "static const uint8_t %s_data[%d] = {\n", array_name, width * height);
+
+    // Iterate over each pixel in the image
+    for (_y = 0; _y < height; _y++) {
+        for (_x = 0; _x < width; _x++) {
+            // Calculate the memory address of the current pixel
+            pixel = data + (_y * width + _x) * 3;
+
+            // Convert 24-bit RGB (888) to 8-bit RGB (332)
+            // by masking and shifting the color components
+            pixel332 = ((pixel[0] & 0xE0) | ((pixel[1] & 0xE0) >> 3) | (pixel[2] >> 6));
+
+            // Print the converted pixel value in hexadecimal format
+            fprintf(fp, "0x%.2X, ", pixel332);
+
+            // back-convert the pixel to 24-bit RGB (888) for debug dumping
+            // Use the color lookup table to convert the 8-bit RGB (332) value back to 24-bit RGB (888)
+            pixel[0] = (color_lut[pixel332] >> 16) & 0xFF;
+            pixel[1] = (color_lut[pixel332] >> 8) & 0xFF;
+            pixel[2] = color_lut[pixel332] & 0xFF;
+        }
+        // Print a newline character after each row of pixels
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "};\n\n");
+    fprintf(fp, "static const Image_t %s_image = {\n", array_name);
+    fprintf(fp, "    .data = %s_data,\n", array_name);
+    fprintf(fp, "    .width = %d,\n", width);
+    fprintf(fp, "    .height = %d,\n", height);
+    fprintf(fp, "    .format_id = RGB332_FORMAT_ID\n");
+    fprintf(fp, "};\n\n");
+    fprintf(fp, "#endif // %s_H\n", array_name);
+
+    return;
+}
+
 
 void floydSteinbergDither(uint8_t* data, int width, int height) {
     // Initialize variables for dithering
@@ -438,6 +389,7 @@ void floydSteinbergDither(uint8_t* data, int width, int height) {
             }
         }
     }
+    return;
 }
 
 void jarvisDither(uint8_t* data, int width, int height) {
@@ -503,6 +455,7 @@ void jarvisDither(uint8_t* data, int width, int height) {
             }
         }
     }
+    return;
 }
 
 void atkinsonDither(uint8_t* data, int width, int height) {
@@ -577,6 +530,7 @@ void atkinsonDither(uint8_t* data, int width, int height) {
             }
         }
     }
+    return;
 }
 
 void bayer32x32Dither(uint8_t* data, int width, int height) {
@@ -611,4 +565,5 @@ void bayer32x32Dither(uint8_t* data, int width, int height) {
             data[idx + 2] = b;
         }
     }
+    return;
 }
