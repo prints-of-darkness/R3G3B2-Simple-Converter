@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -25,9 +26,12 @@ uint8_t gamma_lut[LUT_SIZE];
 uint32_t color_lut[LUT_SIZE];
 uint8_t contrast_brightness_lut[LUT_SIZE];
 
+void jarvisDither(uint8_t* image, int width, int height);
+void atkinsonDither(uint8_t* data, int width, int height);
 void process_image_lut(uint8_t* data, int width, int height);
 void floydSteinbergDither(uint8_t* data, int width, int height);
 void initialize_luts(float gamma, float contrast, float brightness);
+
 
 int main(int argc, char* argv[])
 {
@@ -126,7 +130,9 @@ int main(int argc, char* argv[])
         }
 
         if (dither) {
-            floydSteinbergDither(data, x, y);
+            floydSteinbergDither(data, x, y); // <- looks the best to me.
+            //jarvisDither(data, x, y);   
+            //atkinsonDither(data, x, y);        
         }
 
         fp = fopen(outfilename, "w");
@@ -301,6 +307,114 @@ void floydSteinbergDither(uint8_t* data, int width, int height) {
                     data[((y + 1) * width + x + 1) * 3 + 1] = min(255, max(0, data[((y + 1) * width + x + 1) * 3 + 1] + errorG * 1 / 16));
                     data[((y + 1) * width + x + 1) * 3 + 2] = min(255, max(0, data[((y + 1) * width + x + 1) * 3 + 2] + errorB * 1 / 16));
                 }
+            }
+        }
+    }
+}
+
+void jarvisDither(uint8_t* data, int width, int height) {
+    int x, y;
+    int errorR, errorG, errorB;
+    int i = 0, j = 0, idx = 0, nx = 0, ny = 0;
+
+    uint8_t oldR, oldG, oldB;
+    uint8_t newR, newG, newB;
+
+    // Jarvis, Judice, and Ninke dithering matrix
+    int matrix[3][5] = {
+    {0, 0, 0, 7, 5},
+    {3, 5, 7, 5, 3},
+    {1, 3, 5, 3, 1}
+    };
+
+    for (y = 0; y < height; y++) {
+        for (x = 0; x < width; x++) {
+            oldR = data[(y * width + x) * 3];
+            oldG = data[(y * width + x) * 3 + 1];
+            oldB = data[(y * width + x) * 3 + 2];
+
+            newR = (oldR & 0xE0);
+            newG = (oldG & 0xE0);
+            newB = (oldB & 0xC0);
+
+            data[(y * width + x) * 3]     = newR;
+            data[(y * width + x) * 3 + 1] = newG;
+            data[(y * width + x) * 3 + 2] = newB;
+
+            errorR = oldR - newR;
+            errorG = oldG - newG;
+            errorB = oldB - newB;
+
+            for (i = 0; i < 3; i++) {
+                for (j = 0; j < 5; j++) {
+                    nx = x + j - 2;
+                    ny = y + i;
+                    if (nx >= 0 && nx < width && ny < height) {
+                        idx = (ny * width + nx) * 3;
+                        data[idx] = min(255, max(0, data[idx] + errorR * matrix[i][j] / 48));
+                        data[idx + 1] = min(255, max(0, data[idx + 1] + errorG * matrix[i][j] / 48));
+                        data[idx + 2] = min(255, max(0, data[idx + 2] + errorB * matrix[i][j] / 48));
+                    }
+                }
+            }
+        }
+    }
+}
+
+void atkinsonDither(uint8_t* data, int width, int height) {
+    int x, y;
+    uint8_t oldR, oldG, oldB;
+    uint8_t newR, newG, newB;
+    int errorR, errorG, errorB;
+
+    for (y = 0; y < height; y++) {
+        for (x = 0; x < width; x++) {
+            oldR = data[(y * width + x) * 3];
+            oldG = data[(y * width + x) * 3 + 1];
+            oldB = data[(y * width + x) * 3 + 2];
+
+            newR = (oldR & 0xE0);
+            newG = (oldG & 0xE0);
+            newB = (oldB & 0xC0);
+
+            data[(y * width + x) * 3] = newR;
+            data[(y * width + x) * 3 + 1] = newG;
+            data[(y * width + x) * 3 + 2] = newB;
+
+            errorR = (oldR - newR) / 8;
+            errorG = (oldG - newG) / 8;
+            errorB = (oldB - newB) / 8;
+
+            if (x < width - 1) {
+                data[(y * width + x + 1) * 3] = min(255, max(0, data[(y * width + x + 1) * 3] + errorR));
+                data[(y * width + x + 1) * 3 + 1] = min(255, max(0, data[(y * width + x + 1) * 3 + 1] + errorG));
+                data[(y * width + x + 1) * 3 + 2] = min(255, max(0, data[(y * width + x + 1) * 3 + 2] + errorB));
+            }
+            if (x < width - 2) {
+                data[(y * width + x + 2) * 3] = min(255, max(0, data[(y * width + x + 2) * 3] + errorR));
+                data[(y * width + x + 2) * 3 + 1] = min(255, max(0, data[(y * width + x + 2) * 3 + 1] + errorG));
+                data[(y * width + x + 2) * 3 + 2] = min(255, max(0, data[(y * width + x + 2) * 3 + 2] + errorB));
+            }
+            if (y < height - 1) {
+                data[((y + 1) * width + x) * 3] = min(255, max(0, data[((y + 1) * width + x) * 3] + errorR));
+                data[((y + 1) * width + x) * 3 + 1] = min(255, max(0, data[((y + 1) * width + x) * 3 + 1] + errorG));
+                data[((y + 1) * width + x) * 3 + 2] = min(255, max(0, data[((y + 1) * width + x) * 3 + 2] + errorB));
+
+                if (x > 0) {
+                    data[((y + 1) * width + x - 1) * 3] = min(255, max(0, data[((y + 1) * width + x - 1) * 3] + errorR));
+                    data[((y + 1) * width + x - 1) * 3 + 1] = min(255, max(0, data[((y + 1) * width + x - 1) * 3 + 1] + errorG));
+                    data[((y + 1) * width + x - 1) * 3 + 2] = min(255, max(0, data[((y + 1) * width + x - 1) * 3 + 2] + errorB));
+                }
+                if (x < width - 1) {
+                    data[((y + 1) * width + x + 1) * 3] = min(255, max(0, data[((y + 1) * width + x + 1) * 3] + errorR));
+                    data[((y + 1) * width + x + 1) * 3 + 1] = min(255, max(0, data[((y + 1) * width + x + 1) * 3 + 1] + errorG));
+                    data[((y + 1) * width + x + 1) * 3 + 2] = min(255, max(0, data[((y + 1) * width + x + 1) * 3 + 2] + errorB));
+                }
+            }
+            if (y < height - 2) {
+                data[((y + 2) * width + x) * 3] = min(255, max(0, data[((y + 2) * width + x) * 3] + errorR));
+                data[((y + 2) * width + x) * 3 + 1] = min(255, max(0, data[((y + 2) * width + x) * 3 + 1] + errorG));
+                data[((y + 2) * width + x) * 3 + 2] = min(255, max(0, data[((y + 2) * width + x) * 3 + 2] + errorB));
             }
         }
     }
