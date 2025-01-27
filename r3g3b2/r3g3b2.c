@@ -17,7 +17,7 @@
 
 #include "bayer16x16.h"
 #include "color_lut.h"
-#include "blue_noise.h" //actually white not blue
+//#include "blue_noise.h" //actually white not blue
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
