@@ -132,6 +132,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bayer16x16.h" />
+    <ClInclude Include="blue_noise.h" />
     <ClInclude Include="color_lut.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />

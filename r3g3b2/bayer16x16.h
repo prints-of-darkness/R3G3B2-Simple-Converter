@@ -4,7 +4,8 @@
 #include <stdint.h>
 
 // Bayer 16 x 16 matrix
-const uint8_t BAYER_MATRIX_16X16[16][16] = {
+#define BAYER_SIZE 16
+const uint8_t BAYER_MATRIX_16X16[BAYER_SIZE][BAYER_SIZE] = {
     {0,  128, 32, 160,  8, 136, 40, 168,  2, 130, 34, 162, 10, 138, 42, 170},
     {192, 64, 224, 96, 200, 72, 232, 104, 194, 66, 226, 98, 202, 74, 234, 106},
     {48, 176, 16, 144, 56, 184, 24, 152, 50, 178, 18, 146, 58, 186, 26, 154},
