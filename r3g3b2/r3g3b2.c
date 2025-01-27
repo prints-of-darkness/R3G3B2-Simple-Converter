@@ -59,7 +59,7 @@ void floydSteinbergDither(ImageData* image);
 void jarvisDither(ImageData* image);
 void atkinsonDither(ImageData* image);
 void bayer16x16Dither(ImageData* image);
-void blueNoiseDither(ImageData* image);
+//void blueNoiseDither(ImageData* image);
 
 // File IO
 int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image);
@@ -139,39 +139,39 @@ void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b) {
 
 // --- Dithering Algorithm Functions ---
 
-void blueNoiseDither(ImageData* image) {
-    int width = image->width;
-    int height = image->height;
-
-    if (image == NULL || image->data == NULL || blue_noise_texture == NULL) {
-        fprintf(stderr, "Error: Null pointer passed to blueNoiseDither.\n");
-        return;
-    }
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int idx = (y * width + x) * 3;
-            uint8_t oldR = image->data[idx];
-            uint8_t oldG = image->data[idx + 1];
-            uint8_t oldB = image->data[idx + 2];
-
-            // Get blue noise from the texture and scale it to the 0-255 range
-            float noiseR = (float)blue_noise_texture[y % BLUE_NOISE_SIZE][x % BLUE_NOISE_SIZE] / 255.0f;
-            float noiseG = (float)blue_noise_texture[y % BLUE_NOISE_SIZE][x % BLUE_NOISE_SIZE] / 255.0f;
-            float noiseB = (float)blue_noise_texture[y % BLUE_NOISE_SIZE][x % BLUE_NOISE_SIZE] / 255.0f;
-
-            // Apply dither, clamp to 0-255 range, and quantize
-            int ditheredR = (int)fmin(255, fmax(0, (float)oldR + (noiseR * 16) - 8));
-            int ditheredG = (int)fmin(255, fmax(0, (float)oldG + (noiseG * 16) - 8));
-            int ditheredB = (int)fmin(255, fmax(0, (float)oldB + (noiseB * 16) - 8));
-
-            // Apply the quantization directly using bit shifting and clamping to keep it in the valid range
-            image->data[idx]     = (ditheredR & 0xE0);
-            image->data[idx + 1] = (ditheredG & 0xE0);
-            image->data[idx + 2] = (ditheredB & 0xC0);
-        }
-    }
-}
+//void blueNoiseDither(ImageData* image) {
+//    int width = image->width;
+//    int height = image->height;
+//
+//    if (image == NULL || image->data == NULL || blue_noise_texture == NULL) {
+//        fprintf(stderr, "Error: Null pointer passed to blueNoiseDither.\n");
+//        return;
+//    }
+//
+//    for (int y = 0; y < height; y++) {
+//        for (int x = 0; x < width; x++) {
+//            int idx = (y * width + x) * 3;
+//            uint8_t oldR = image->data[idx];
+//            uint8_t oldG = image->data[idx + 1];
+//            uint8_t oldB = image->data[idx + 2];
+//
+//            // Get blue noise from the texture and scale it to the 0-255 range
+//            float noiseR = (float)blue_noise_texture[y % BLUE_NOISE_SIZE][x % BLUE_NOISE_SIZE] / 255.0f;
+//            float noiseG = (float)blue_noise_texture[y % BLUE_NOISE_SIZE][x % BLUE_NOISE_SIZE] / 255.0f;
+//            float noiseB = (float)blue_noise_texture[y % BLUE_NOISE_SIZE][x % BLUE_NOISE_SIZE] / 255.0f;
+//
+//            // Apply dither, clamp to 0-255 range, and quantize
+//            int ditheredR = (int)fmin(255, fmax(0, (float)oldR + (noiseR * 32) - 16));
+//            int ditheredG = (int)fmin(255, fmax(0, (float)oldG + (noiseG * 32) - 16));
+//            int ditheredB = (int)fmin(255, fmax(0, (float)oldB + (noiseB * 32) - 16));
+//
+//            // Apply the quantization directly using bit shifting and clamping to keep it in the valid range
+//            image->data[idx]     = (ditheredR & 0xE0);
+//            image->data[idx + 1] = (ditheredG & 0xE0);
+//            image->data[idx + 2] = (ditheredB & 0xC0);
+//        }
+//    }
+//}
 
 // --- Dithering Algorithm Functions ---
 void floydSteinbergDither(ImageData* image) {
@@ -376,9 +376,9 @@ void bayer16x16Dither(ImageData* image) {
             float thresholdG = (float)BAYER_MATRIX_16X16[y % BAYER_SIZE][x % BAYER_SIZE] / 255.0f;
             float thresholdB = (float)BAYER_MATRIX_16X16[y % BAYER_SIZE][x % BAYER_SIZE] / 255.0f;
 
-            int ditheredR = (int)fmin(255, fmax(0, (float)oldR + (thresholdR * 16) - 8));
-            int ditheredG = (int)fmin(255, fmax(0, (float)oldG + (thresholdG * 16) - 8));
-            int ditheredB = (int)fmin(255, fmax(0, (float)oldB + (thresholdB * 16) - 8));
+            int ditheredR = (int)fmin(255, fmax(0, (float)oldR + (thresholdR * 32) - 16));
+            int ditheredG = (int)fmin(255, fmax(0, (float)oldG + (thresholdG * 32) - 16));
+            int ditheredB = (int)fmin(255, fmax(0, (float)oldB + (thresholdB * 32) - 16));
 
             image->data[idx]     = (ditheredR & 0xE0);
             image->data[idx + 1] = (ditheredG & 0xE0);
@@ -521,7 +521,7 @@ int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) {
             printf("Usage: r3g3b2 -i <input file> -o <output file> [-dm <method>] [-debug <debug_filename>] [-g <gamma>] [-c <contrast>] [-b <brightness>]\n");
             printf("  -i <input file>           : Specify input file\n");
             printf("  -o <output file>          : Specify output file\n");
-            printf("  -dm <method>              : Set dithering method (0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson, 3: Bayer 16x16 4: Blue Noise)\n");
+            printf("  -dm <method>              : Set dithering method (0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson, 3: Bayer 16x16)\n");
             printf("  -debug <debug_filename>   : Enable debug mode and specify debug file prefix\n");
             printf("  -g <gamma>                : Set gamma value (default: 1.0)\n");
             printf("  -c <contrast>             : Set contrast value (default: 0.0)\n");
@@ -576,7 +576,7 @@ int process_image(ProgramOptions* opts) {
     case 1: dither_function = jarvisDither; break;
     case 2: dither_function = atkinsonDither; break;
     case 3: dither_function = bayer16x16Dither; break;
-    case 4: dither_function = blueNoiseDither; break; // Add this case
+    //case 4: dither_function = blueNoiseDither; break;
     default: dither_function = NULL;
     }
 
