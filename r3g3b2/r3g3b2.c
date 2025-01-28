@@ -5,8 +5,6 @@
 
     (MJM + AI) 2025
 
-    also, remember to get a roast beef sandwich this week, its imperative.
-
 */
 
 #include <stdio.h>
@@ -15,10 +13,11 @@
 #include <string.h>
 #include <math.h>
 
+
 #include "bayer16x16.h"
 #include "color_lut.h"
 
-//#define DEBUG_BUILD //uncomment for debug capabilities
+#define DEBUG_BUILD //uncomment for debug capabilities
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -35,7 +34,9 @@
 typedef struct {
     char infilename[MAX_FILENAME_LENGTH];
     char outfilename[MAX_FILENAME_LENGTH];
+#ifdef DEBUG_BUILD
     char debug_filename[MAX_FILENAME_LENGTH];
+#endif
     int dither_method;
     float gamma;
     float contrast;
@@ -49,12 +50,22 @@ typedef struct {
     int height;
 } ImageData;
 
+// Error Diffusion Matrix Structure
+typedef struct {
+    int x_offset;
+    int y_offset;
+    float weight;
+} ErrorDiffusionEntry;
+
 // --- Function Prototypes ---
+// Memory management
+void* mem_alloc_checked(size_t size, const char* location);
+
 // LUT and image processing
-void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut);
-void process_image_lut(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut);
-uint8_t rgbToRgb332(uint8_t r, uint8_t g, uint8_t b);
-void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b);
+static void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut);
+static void process_image_lut(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut);
+static uint8_t rgbToRgb332(uint8_t r, uint8_t g, uint8_t b);
+static void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b);
 
 // Dithering algorithms
 typedef void (*DitherFunc)(ImageData* image);
@@ -62,8 +73,13 @@ void floydSteinbergDither(ImageData* image);
 void jarvisDither(ImageData* image);
 void atkinsonDither(ImageData* image);
 void bayer16x16Dither(ImageData* image);
+static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matrix_size);
 
 // File IO
+static int write_c_header(FILE* fp, const char* array_name);
+static int write_image_data(FILE* fp, const char* array_name, const ImageData* image);
+static int write_image_struct(FILE* fp, const char* array_name, const ImageData* image);
+static int write_c_footer(FILE* fp, const char* array_name);
 int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image);
 int load_image(const char* filename, ImageData* image);
 void free_image_data(ImageData* image);
@@ -83,14 +99,23 @@ void mem_alloc_failed(const char* location)
     exit(EXIT_FAILURE);
 }
 
+// Allocation check function
+void* mem_alloc_checked(size_t size, const char* location) {
+    void* ptr = malloc(size);
+    if (!ptr) {
+        mem_alloc_failed(location);
+    }
+    return ptr;
+}
+
 // --- LUT and image processing functions ---
 
 // Function to initialize the look-up tables (LUTs) for color conversion
-void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut) {
+static void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut) {
     float value, factor;
 
-    if (gamma_lut == NULL || contrast_brightness_lut == NULL) {
-        fprintf(stderr, "Error: Null pointer passed to LUT initialisation.\n");
+    if (!gamma_lut || !contrast_brightness_lut) {
+        fprintf(stderr, "Error: Null pointer passed to LUT initialization.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -109,8 +134,8 @@ void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gam
     return;
 }
 
-void process_image_lut(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut) {
-    if (image == NULL || image->data == NULL || gamma_lut == NULL || contrast_brightness_lut == NULL)
+static void process_image_lut(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut) {
+    if (!image || !image->data || !gamma_lut || !contrast_brightness_lut)
     {
         fprintf(stderr, "Error: Null pointer passed to process_image_lut.\n");
         return;
@@ -129,14 +154,14 @@ void process_image_lut(ImageData* image, const uint8_t* gamma_lut, const uint8_t
     }
 }
 
-uint8_t rgbToRgb332(uint8_t r, uint8_t g, uint8_t b) {
+static uint8_t rgbToRgb332(uint8_t r, uint8_t g, uint8_t b) {
     // Extract the top 3 bits of red, top 3 bits of green (shifted), and top 2 bits of blue (shifted)
     // and combine them into an RGB332 byte
     return ((r & 0xE0) | ((g & 0xE0) >> 3) | (b >> 6));
 }
 
-void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b) {
-    if (r == NULL || g == NULL || b == NULL) {
+static void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b) {
+    if (!r || !g || !b) {
         fprintf(stderr, "Error: Null pointer passed to rgb332ToRgb.\n");
         return;
     }
@@ -149,231 +174,88 @@ void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b) {
 
 // --- Dithering Algorithm Functions ---
 
-void floydSteinbergDither(ImageData* image) {
-    int width = image->width;
-    int height = image->height;
-
-    if (image == NULL || image->data == NULL)
-    {
-        fprintf(stderr, "Error: Null pointer passed to floydSteinbergDither.\n");
-        return;
-    }
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            // Calculate the index of the current pixel
-            int idx = (y * width + x) * 3;
-
-            // Store the original color values
-            uint8_t oldR = image->data[idx];
-            uint8_t oldG = image->data[idx + 1];
-            uint8_t oldB = image->data[idx + 2];
-
-            // Quantize to RGB332: extract top 3 bits for R and G, 2 bits for B
-            uint8_t newR = (oldR & 0xE0);
-            uint8_t newG = (oldG & 0xE0);
-            uint8_t newB = (oldB & 0xC0);
-
-            // Update the image with the quantized values
-            image->data[idx]     = newR;
-            image->data[idx + 1] = newG;
-            image->data[idx + 2] = newB;
-
-            // Calculate the error for each color channel
-            int errorR = oldR - newR;
-            int errorG = oldG - newG;
-            int errorB = oldB - newB;
-
-            // Distribute the error to neighboring pixels
-
-            //Check if the next pixel is valid, if so, update the value
-            if (x < width - 1) {
-                int next_pixel_idx = idx + 3;
-                image->data[next_pixel_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_pixel_idx]     + errorR * 7 / 16));
-                image->data[next_pixel_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_pixel_idx + 1] + errorG * 7 / 16));
-                image->data[next_pixel_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_pixel_idx + 2] + errorB * 7 / 16));
-            }
-
-            // Check if the next row is valid, if so update the value
-            if (y < height - 1) {
-                // Check if the bottom left pixel is valid, if so update the value
-                if (x > 0) {
-                    int next_row_left_idx = ((y + 1) * width + x - 1) * 3;
-                    image->data[next_row_left_idx]    = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx]      + errorR * 3 / 16));
-                    image->data[next_row_left_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx + 1] + errorG * 3 / 16));
-                    image->data[next_row_left_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx + 2] + errorB * 3 / 16));
-                }
-                // Check if the pixel below is valid, if so update the value
-                int next_row_idx = ((y + 1) * width + x) * 3;
-                image->data[next_row_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx]     + errorR * 5 / 16));
-                image->data[next_row_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx + 1] + errorG * 5 / 16));
-                image->data[next_row_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx + 2] + errorB * 5 / 16));
-
-                // Check if the bottom right pixel is valid, if so update the value
-                if (x < width - 1) {
-                    int next_row_right_idx = ((y + 1) * width + x + 1) * 3;
-                    image->data[next_row_right_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx]     + errorR * 1 / 16));
-                    image->data[next_row_right_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx + 1] + errorG * 1 / 16));
-                    image->data[next_row_right_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx + 2] + errorB * 1 / 16));
-                }
-            }
-        }
-    }
-}
-
-void jarvisDither(ImageData* image) {
-    int width = image->width;
-    int height = image->height;
-
-    if (image == NULL || image->data == NULL) {
-        fprintf(stderr, "Error: Null pointer passed to jarvisDither.\n");
-        return;
-    }
-
-    // Jarvis, Judice, and Ninke Dithering Matrix (error diffusion weights)
-    int matrix[3][5] = {
-        {0, 0, 0, 7, 5},
-        {3, 5, 7, 5, 3},
-        {1, 3, 5, 3, 1}
+void floydSteinbergDither(ImageData* image)
+{
+    ErrorDiffusionEntry matrix[] = {
+        { 1, 0, 7.0f / 16.0f },
+        {-1, 1, 3.0f / 16.0f },
+        { 0, 1, 5.0f / 16.0f },
+        { 1, 1, 1.0f / 16.0f }
     };
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            // Calculate the index for the current pixel
-            int idx = (y * width + x) * 3;
-
-            // Store the original color values
-            uint8_t oldR = image->data[idx];
-            uint8_t oldG = image->data[idx + 1];
-            uint8_t oldB = image->data[idx + 2];
-
-            // Quantize to RGB332: extract top 3 bits for R and G, 2 bits for B
-            uint8_t newR = (oldR & 0xE0);
-            uint8_t newG = (oldG & 0xE0);
-            uint8_t newB = (oldB & 0xC0);
-
-            // Update the image with the quantized values
-            image->data[idx]     = newR;
-            image->data[idx + 1] = newG;
-            image->data[idx + 2] = newB;
-
-            // Calculate the error for each color channel
-            int errorR = oldR - newR;
-            int errorG = oldG - newG;
-            int errorB = oldB - newB;
-
-            // Distribute the error to neighboring pixels using the Jarvis matrix
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 5; j++) {
-                    // Calculate the coordinates of the neighbor pixel
-                    int nx = x + j - 2;
-                    int ny = y + i;
-
-                    // Check if the neighbor pixel coordinates are within image bounds
-                    if (nx >= 0 && nx < width && ny < height) {
-                        // Calculate the index for the neighboring pixel
-                        int adj_idx = (ny * width + nx) * 3;
-                        // Get the error weighting from the matrix
-                        int error_weight = matrix[i][j];
-
-                        // Only add error when the weighting from the matrix is above 0, to prevent a divde by zero error
-                        if (error_weight > 0) {
-                            // Distribute the error using the weighting from the matrix
-                            image->data[adj_idx]     = (uint8_t)fmin(255, fmax(0, image->data[adj_idx]     + errorR * error_weight / 48));
-                            image->data[adj_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx + 1] + errorG * error_weight / 48));
-                            image->data[adj_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx + 2] + errorB * error_weight / 48));
-                        }
-                    }
-                }
-            }
-        }
-    }
+    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
 }
 
-void atkinsonDither(ImageData* image) {
+void jarvisDither(ImageData* image)
+{
+    ErrorDiffusionEntry matrix[] = {
+    { 1, 0, 7.0f / 48.0f }, { 2, 0, 5.0f / 48.0f },
+    {-2, 1, 3.0f / 48.0f }, {-1, 1, 5.0f / 48.0f }, { 0, 1, 7.0f / 48.0f }, { 1, 1, 5.0f / 48.0f }, { 2, 1, 3.0f / 48.0f },
+    {-2, 2, 1.0f / 48.0f }, {-1, 2, 3.0f / 48.0f }, { 0, 2, 5.0f / 48.0f }, { 1, 2, 3.0f / 48.0f }, { 2, 2, 1.0f / 48.0f }
+    };
+    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
+}
+
+void atkinsonDither(ImageData* image)
+{
+    ErrorDiffusionEntry matrix[] = {
+    { 1, 0, 1.0f / 8.0f }, { 2, 0, 1.0f / 8.0f },
+    {-1, 1, 1.0f / 8.0f }, { 0, 1, 1.0f / 8.0f }, { 1, 1, 1.0f / 8.0f },
+    { 0, 2, 1.0f / 8.0f }
+    };
+    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
+}
+
+static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matrix_size)
+{
     int width = image->width;
     int height = image->height;
 
-    if (image == NULL || image->data == NULL) {
-        fprintf(stderr, "Error: Null pointer passed to atkinsonDither.\n");
+    if (!image || !image->data)
+    {
+        fprintf(stderr, "Error: Null pointer passed to genericDither.\n");
         return;
     }
 
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            // Calculate the index of the current pixel
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
             int idx = (y * width + x) * 3;
-
-            // Store the original color values
             uint8_t oldR = image->data[idx];
             uint8_t oldG = image->data[idx + 1];
             uint8_t oldB = image->data[idx + 2];
 
-            // Quantize to RGB332: extract top 3 bits for R and G, 2 bits for B
             uint8_t newR = (oldR & 0xE0);
             uint8_t newG = (oldG & 0xE0);
             uint8_t newB = (oldB & 0xC0);
 
-            // Update the image with the quantized values
-            image->data[idx]     = newR;
+            image->data[idx] = newR;
             image->data[idx + 1] = newG;
             image->data[idx + 2] = newB;
 
-            // Calculate the error for each color channel and divide it by 8
-            float errorR = (float)(oldR - newR) / 8.0f;
-            float errorG = (float)(oldG - newG) / 8.0f;
-            float errorB = (float)(oldB - newB) / 8.0f;
+            float errorR = (float)(oldR - newR);
+            float errorG = (float)(oldG - newG);
+            float errorB = (float)(oldB - newB);
 
-            // Distribute the error to neighboring pixels using the Atkinson matrix
+            for (int i = 0; i < matrix_size; i++)
+            {
+                int nx = x + matrix[i].x_offset;
+                int ny = y + matrix[i].y_offset;
 
-            // Check if next pixel is valid, if so add error
-            if (x < width - 1) {
-                image->data[idx + 3] = (uint8_t)fmin(255, fmax(0, image->data[idx + 3] + errorR));
-                image->data[idx + 4] = (uint8_t)fmin(255, fmax(0, image->data[idx + 4] + errorG));
-                image->data[idx + 5] = (uint8_t)fmin(255, fmax(0, image->data[idx + 5] + errorB));
-            }
-            // Check if the pixel after next is valid, if so add error
-            if (x < width - 2) {
-                image->data[idx + 6] = (uint8_t)fmin(255, fmax(0, image->data[idx + 6] + errorR));
-                image->data[idx + 7] = (uint8_t)fmin(255, fmax(0, image->data[idx + 7] + errorG));
-                image->data[idx + 8] = (uint8_t)fmin(255, fmax(0, image->data[idx + 8] + errorB));
-            }
-
-            // Check if the next row is valid, if so add error
-            if (y < height - 1) {
-                int next_row_idx = ((y + 1) * width + x) * 3;
-                image->data[next_row_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx]     + errorR));
-                image->data[next_row_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx + 1] + errorG));
-                image->data[next_row_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx + 2] + errorB));
-
-                // Check if the pixel below left is valid, if so add error
-                if (x > 0) {
-                    int next_row_left_idx = ((y + 1) * width + x - 1) * 3;
-                    image->data[next_row_left_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx]     + errorR));
-                    image->data[next_row_left_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx + 1] + errorG));
-                    image->data[next_row_left_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx + 2] + errorB));
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height)
+                {
+                    int adj_idx = (ny * width + nx) * 3;
+                    image->data[adj_idx] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx] + errorR * matrix[i].weight));
+                    image->data[adj_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx + 1] + errorG * matrix[i].weight));
+                    image->data[adj_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx + 2] + errorB * matrix[i].weight));
                 }
-                // Check if pixel below right is valid, if so add error
-                if (x < width - 1) {
-                    int next_row_right_idx = ((y + 1) * width + x + 1) * 3;
-                    image->data[next_row_right_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx]     + errorR));
-                    image->data[next_row_right_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx + 1] + errorG));
-                    image->data[next_row_right_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx + 2] + errorB));
-                }
-            }
-            // Check if the row two below is valid, if so add error
-            if (y < height - 2) {
-                int next_row_2_idx = ((y + 2) * width + x) * 3;
-                image->data[next_row_2_idx]      = (uint8_t)fmin(255, fmax(0, image->data[next_row_2_idx]    + errorR));
-                image->data[next_row_2_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_2_idx + 1] + errorG));
-                image->data[next_row_2_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_2_idx + 2] + errorB));
             }
         }
     }
 }
 
 void bayer16x16Dither(ImageData* image) {
-    if (image == NULL || image->data == NULL) {
+    if (!image || !image->data) {
         fprintf(stderr, "Error: Null pointer passed to bayer16x16Dither.\n");
         return;
     }
@@ -385,7 +267,7 @@ void bayer16x16Dither(ImageData* image) {
         for (int x = 0; x < width; x++) {
             // Calculate the index for the current pixel
             int idx = (y * width + x) * 3;
-            
+
             // Get dither threshold from the bayer matrix
             int bayer_threshold = BAYER_MATRIX_16X16[y % BAYER_SIZE][x % BAYER_SIZE];
             // Normalize bayer threshold to -128 to 127
@@ -405,7 +287,7 @@ void bayer16x16Dither(ImageData* image) {
             g = (g > 255) ? 255 : (g < 0) ? 0 : g;
             b = (b > 255) ? 255 : (b < 0) ? 0 : b;
 
-            image->data[idx]     = (r & 0xE0);
+            image->data[idx] = (r & 0xE0);
             image->data[idx + 1] = (g & 0xE0);
             image->data[idx + 2] = (b & 0xC0);
         }
@@ -416,7 +298,7 @@ void bayer16x16Dither(ImageData* image) {
 int load_image(const char* filename, ImageData* image) {
     int n;
 
-    if (filename == NULL || image == NULL) {
+    if (!filename || !image) {
         fprintf(stderr, "Error: Null pointer passed to load_image.\n");
         return EXIT_FAILURE;
     }
@@ -425,7 +307,7 @@ int load_image(const char* filename, ImageData* image) {
     image->data = stbi_load(filename, &image->width, &image->height, &n, 3);
 
     // Check if image loading failed
-    if (image->data == NULL) {
+    if (!image->data) {
         fprintf(stderr, "Failed to load image: %s\n", filename);
         return EXIT_FAILURE;
     }
@@ -447,7 +329,7 @@ void free_image_data(ImageData* image) {
 
 char* trim_filename_copy(const char* filename, char* dest, size_t dest_size) {
     // Check for invalid inputs
-    if (filename == NULL || dest == NULL || dest_size == 0) {
+    if (!filename || !dest || dest_size == 0) {
         return NULL;
     }
 
@@ -464,7 +346,7 @@ char* trim_filename_copy(const char* filename, char* dest, size_t dest_size) {
     size_t length;
 
     // If there is no dot, or if the dot is the first character, then the entire filename should be copied
-    if (dot == NULL || dot == filename) {
+    if (!dot || dot == filename) {
         length = strlen(filename);
         if (length >= dest_size)
         {
@@ -496,83 +378,102 @@ char* trim_filename_copy(const char* filename, char* dest, size_t dest_size) {
 }
 
 int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image) {
-    FILE* fp = NULL;
+    FILE* fp;
 
-    // Check for invalid inputs
-    if (filename == NULL || array_name == NULL || image == NULL || image->data == NULL) {
+    if (!filename || !array_name || !image || !image->data)
+    {
         fprintf(stderr, "Error: Null pointer passed to write_image_data_to_file.\n");
         return EXIT_FAILURE;
     }
 
-    // Open the file for writing
     fp = fopen(filename, "w");
-    if (fp == NULL) {
+    if (!fp) {
         perror("Failed to open output file");
         return EXIT_FAILURE;
     }
 
-    // Write the header for the C file
-    if (fprintf(fp, "#ifndef %s_H\n", array_name) < 0)          goto error_close_file;
-    if (fprintf(fp, "#define %s_H\n\n", array_name) < 0)        goto error_close_file;
-    if (fprintf(fp, "#include \"image_types.h\"\n\n") < 0)      goto error_close_file;
+    if (write_c_header(fp, array_name) != EXIT_SUCCESS)            goto error_close_file;
+    if (write_image_data(fp, array_name, image) != EXIT_SUCCESS)   goto error_close_file;
+    if (write_image_struct(fp, array_name, image) != EXIT_SUCCESS) goto error_close_file;
+    if (write_c_footer(fp, array_name) != EXIT_SUCCESS)            goto error_close_file;
 
-    if (fprintf(fp, "/*\n") < 0) goto error_close_file;
-    if (fprintf(fp, "Contents of image_types.h:\n\n") < 0)      goto error_close_file;
-    if (fprintf(fp, "#ifndef IMAGE_TYPES_H\n") < 0)             goto error_close_file;
-    if (fprintf(fp, "#define IMAGE_TYPES_H\n\n") < 0)           goto error_close_file;
-    if (fprintf(fp, "#include <stdint.h>\n\n") < 0)             goto error_close_file;
-    if (fprintf(fp, "#define RGB332_FORMAT_ID 0x332\n\n") < 0)  goto error_close_file;
-    if (fprintf(fp, "typedef struct {\n") < 0)                  goto error_close_file;
-    if (fprintf(fp, "    const uint8_t* data;\n") < 0)          goto error_close_file;
-    if (fprintf(fp, "    uint16_t width;\n") < 0)               goto error_close_file;
-    if (fprintf(fp, "    uint16_t height;\n") < 0)              goto error_close_file;
-    if (fprintf(fp, "    uint16_t format_id;\n") < 0)           goto error_close_file;
-    if (fprintf(fp, "} Image_t;\n\n") < 0)                      goto error_close_file;
-    if (fprintf(fp, "#endif // IMAGE_TYPES_H\n") < 0)           goto error_close_file;
-    if (fprintf(fp, "*/\n\n") < 0)                              goto error_close_file;
-
-    // Write the array data
-    if (fprintf(fp, "static const uint8_t %s_data[%d] = {\n", array_name, image->width * image->height) < 0) goto error_close_file;
-
-    // Loop through all of the pixels in the image
-    for (int y = 0; y < image->height; y++) {
-        for (int x = 0; x < image->width; x++) {
-            // Calculate the pixel index into the image data
-            int idx = (y * image->width + x) * 3;
-
-            // Convert the pixel value from RGB to RGB332
-            uint8_t rgb332 = rgbToRgb332(image->data[idx], image->data[idx + 1], image->data[idx + 2]);
-
-            // Write the RGB332 value to the output file in hex format
-            if (fprintf(fp, "0x%.2X, ", rgb332) < 0) goto error_close_file;
-
-            // Convert the RGB332 back to RGB, so that the image data is preserved if debug mode is enabled
-            rgb332ToRgb(rgb332, &image->data[idx], &image->data[idx + 1], &image->data[idx + 2]);
-        }
-        // Add a new line after each row
-        if (fprintf(fp, "\n") < 0) goto error_close_file;
-    }
-
-    if (fprintf(fp, "};\n\n") < 0) goto error_close_file;
-    // Write the image struct to the file
-    if (fprintf(fp, "static const Image_t %s_image = {\n", array_name) < 0) goto error_close_file;
-    if (fprintf(fp, "    .data = %s_data,\n", array_name) < 0)              goto error_close_file;
-    if (fprintf(fp, "    .width = %d,\n", image->width) < 0)                goto error_close_file;
-    if (fprintf(fp, "    .height = %d,\n", image->height) < 0)              goto error_close_file;
-    if (fprintf(fp, "    .format_id = RGB332_FORMAT_ID\n") < 0)             goto error_close_file;
-    if (fprintf(fp, "};\n\n") < 0)                                          goto error_close_file;
-    if (fprintf(fp, "#endif // %s_H\n", array_name) < 0)                    goto error_close_file;
-
-    // Close the file
     fclose(fp);
     return EXIT_SUCCESS;
 
-    // Error handling and clean-up
 error_close_file:
     fclose(fp);
-    perror("Error writing to output file");
     return EXIT_FAILURE;
 }
+
+static int write_c_header(FILE* fp, const char* array_name)
+{
+    if (!fp || !array_name) return EXIT_FAILURE;
+
+    if (fprintf(fp, "#ifndef %s_H\n", array_name) < 0)      return EXIT_FAILURE;
+    if (fprintf(fp, "#define %s_H\n\n", array_name) < 0)    return EXIT_FAILURE;
+    if (fprintf(fp, "#include \"image_types.h\"\n\n") < 0)  return EXIT_FAILURE;
+
+    if (fprintf(fp, "/*\n") < 0) return EXIT_FAILURE;
+    if (fprintf(fp, "Contents of image_types.h:\n\n") < 0)      return EXIT_FAILURE;
+    if (fprintf(fp, "#ifndef IMAGE_TYPES_H\n") < 0)             return EXIT_FAILURE;
+    if (fprintf(fp, "#define IMAGE_TYPES_H\n\n") < 0)           return EXIT_FAILURE;
+    if (fprintf(fp, "#include <stdint.h>\n\n") < 0)             return EXIT_FAILURE;
+    if (fprintf(fp, "#define RGB332_FORMAT_ID 0x332\n\n") < 0)  return EXIT_FAILURE;
+    if (fprintf(fp, "typedef struct {\n") < 0)                  return EXIT_FAILURE;
+    if (fprintf(fp, "    const uint8_t* data;\n") < 0)          return EXIT_FAILURE;
+    if (fprintf(fp, "    uint16_t width;\n") < 0)               return EXIT_FAILURE;
+    if (fprintf(fp, "    uint16_t height;\n") < 0)              return EXIT_FAILURE;
+    if (fprintf(fp, "    uint16_t format_id;\n") < 0)           return EXIT_FAILURE;
+    if (fprintf(fp, "} Image_t;\n\n") < 0)                      return EXIT_FAILURE;
+    if (fprintf(fp, "#endif // IMAGE_TYPES_H\n") < 0)           return EXIT_FAILURE;
+    if (fprintf(fp, "*/\n\n") < 0)                              return EXIT_FAILURE;
+
+    return EXIT_SUCCESS;
+}
+
+static int write_image_data(FILE* fp, const char* array_name, const ImageData* image)
+{
+    if (!fp || !array_name || !image || !image->data) return EXIT_FAILURE;
+
+    if (fprintf(fp, "static const uint8_t %s_data[%d] = {\n", array_name, image->width * image->height) < 0) return EXIT_FAILURE;
+
+    for (int y = 0; y < image->height; y++)
+    {
+        for (int x = 0; x < image->width; x++)
+        {
+            int idx = (y * image->width + x) * 3;
+            uint8_t rgb332 = rgbToRgb332(image->data[idx], image->data[idx + 1], image->data[idx + 2]);
+            if (fprintf(fp, "0x%.2X, ", rgb332) < 0) return EXIT_FAILURE;
+
+            rgb332ToRgb(rgb332, &image->data[idx], &image->data[idx + 1], &image->data[idx + 2]);
+        }
+        if (fprintf(fp, "\n") < 0) return EXIT_FAILURE;
+    }
+
+    if (fprintf(fp, "};\n\n") < 0)  return EXIT_FAILURE;
+    return EXIT_SUCCESS;
+}
+
+static int write_image_struct(FILE* fp, const char* array_name, const ImageData* image)
+{
+    if (!fp || !array_name || !image) return EXIT_FAILURE;
+
+    if (fprintf(fp, "static const Image_t %s_image = {\n", array_name) < 0) return EXIT_FAILURE;
+    if (fprintf(fp, "    .data = %s_data,\n", array_name) < 0)              return EXIT_FAILURE;
+    if (fprintf(fp, "    .width = %d,\n", image->width) < 0)                return EXIT_FAILURE;
+    if (fprintf(fp, "    .height = %d,\n", image->height) < 0)              return EXIT_FAILURE;
+    if (fprintf(fp, "    .format_id = RGB332_FORMAT_ID\n") < 0)             return EXIT_FAILURE;
+    if (fprintf(fp, "};\n\n") < 0)                                          return EXIT_FAILURE;
+    return EXIT_SUCCESS;
+}
+
+static int write_c_footer(FILE* fp, const char* array_name)
+{
+    if (!fp || !array_name) return EXIT_FAILURE;
+    if (fprintf(fp, "#endif // %s_H\n", array_name) < 0) return EXIT_FAILURE;
+    return EXIT_SUCCESS;
+}
+
 int process_image(ProgramOptions* opts) {
     ImageData image = { 0 };
     uint8_t gamma_lut[LUT_SIZE] = { 0 };
@@ -587,7 +488,7 @@ int process_image(ProgramOptions* opts) {
 #endif
 
     // Check for invalid inputs
-    if (opts == NULL) {
+    if (!opts) {
         fprintf(stderr, "Error: Null pointer passed to process_image.\n");
         return EXIT_FAILURE;
     }
@@ -672,10 +573,10 @@ void init_program_options(ProgramOptions* opts) {
 
     // Set the default program options
     opts->dither_method = -1; // -1 Indicates that no dither method is selected
-    opts->gamma         = 1.0f;
-    opts->contrast      = 0.0f;
-    opts->brightness    = 1.0f;
-    opts->debug_mode    = 0; // debug mode is off by default
+    opts->gamma = 1.0f;
+    opts->contrast = 0.0f;
+    opts->brightness = 1.0f;
+    opts->debug_mode = 0; // debug mode is off by default
 }
 
 int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) {
