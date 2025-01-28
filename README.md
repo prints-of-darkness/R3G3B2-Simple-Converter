@@ -23,17 +23,17 @@
 
 To compile the code, use a C compiler that supports C99 or later:
 
-      gcc r3g3b2.c -o r3g3b2 -lm
+		gcc r3g3b2.c -o r3g3b2 -lm
     
 To enable debug mode, add the DEBUG_BUILD define
 
-      gcc r3g3b2.c -o r3g3b2 -lm -DDEBUG_BUILD
+		gcc r3g3b2.c -o r3g3b2 -lm -DDEBUG_BUILD
     
 This will generate an executable named r3g3b2. The -lm flag links the math library, which is required for the gamma correction.
 
 ## Usage
 
-      r3g3b2 -i <input file> -o <output file> [-dm <method>] [-g <gamma>] [-c <contrast>] [-b <brightness>] [-h]
+		r3g3b2 -i <input file> -o <output file> [-dm <method>] [-g <gamma>] [-c <contrast>] [-b <brightness>] [-h]
     
 
 ### Options
@@ -69,21 +69,21 @@ This will generate an executable named r3g3b2. The -lm flag links the math libra
 
 1.  **Convert input.png to output.h using Floyd-Steinberg dithering:**
     
-      ./r3g3b2 -i input.png -o output.h -dm 0
+		./r3g3b2 -i input.png -o output.h -dm 0
 
     
 -   **Convert image.jpg to image_out.h with a gamma of 2.2 and increased contrast:**
     
-      ./r3g3b2 -i image.jpg -o image_out.h -g 2.2 -c 50
+		./r3g3b2 -i image.jpg -o image_out.h -g 2.2 -c 50
           
 2.  **Convert my_pic.bmp to my_pic.h with no dithering:**
     
-      ./r3g3b2 -i my_pic.bmp -o my_pic.h
+		./r3g3b2 -i my_pic.bmp -o my_pic.h
 
 1.  **Convert my_pic.bmp to my_pic.h with debug mode enabled:**
     
 
-      ./r3g3b2 -i my_pic.bmp -o my_pic.h -debug debug_out
+		./r3g3b2 -i my_pic.bmp -o my_pic.h -debug debug_out
 
 This example will also output a bmp image, named debug_out_processed.bmp, which shows what the image looks like after the gamma, contrast, and brightness LUT has been applied, and a bmp image, named debug_out_final.bmp, which shows what the image looks like after dithering has been applied (if selected)
 
