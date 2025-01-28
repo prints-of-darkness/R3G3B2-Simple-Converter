@@ -215,7 +215,9 @@ static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, i
             uint8_t oldG = image->data[idx + 1];
             uint8_t oldB = image->data[idx + 2];
 
-            uint8_t newR, newG, newB;
+            uint8_t newR = oldR;
+            uint8_t newG = oldG;
+            uint8_t newB = oldB;
             quantize_pixel(&newR, &newG, &newB);
 
             image->data[idx] = newR;
