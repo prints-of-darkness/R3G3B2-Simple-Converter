@@ -23,17 +23,17 @@
 
 To compile the code, use a C compiler that supports C99 or later:
 
-		gcc r3g3b2.c -o r3g3b2 -lm
+	gcc r3g3b2.c -o r3g3b2 -lm
     
 To enable debug mode, add the DEBUG_BUILD define
 
-		gcc r3g3b2.c -o r3g3b2 -lm -DDEBUG_BUILD
+	gcc r3g3b2.c -o r3g3b2 -lm -DDEBUG_BUILD
     
 This will generate an executable named r3g3b2. The -lm flag links the math library, which is required for the gamma correction.
 
 ## Usage
 
-		r3g3b2 -i <input file> -o <output file> [-dm <method>] [-g <gamma>] [-c <contrast>] [-b <brightness>] [-h]
+	r3g3b2 -i <input file> -o <output file> [-dm <method>] [-g <gamma>] [-c <contrast>] [-b <brightness>] [-h]
     
 
 ### Options
