@@ -17,13 +17,16 @@
 
 #include "bayer16x16.h"
 #include "color_lut.h"
-//#include "blue_noise.h" //actually white not blue
+
+#define DEBUG_BUILD //uncomment for debug capabilities
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#ifdef DEBUG_BUILD
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+#endif
 
 #define LUT_SIZE 256
 #define MAX_FILENAME_LENGTH 1024
@@ -119,7 +122,7 @@ void process_image_lut(ImageData* image, const uint8_t* gamma_lut, const uint8_t
             int idx = (y * image->width + x) * 3;
 
             // Apply the LUT transformations
-            image->data[idx] = contrast_brightness_lut[gamma_lut[image->data[idx]]];   // Red channel
+            image->data[idx]     = contrast_brightness_lut[gamma_lut[image->data[idx]]];   // Red channel
             image->data[idx + 1] = contrast_brightness_lut[gamma_lut[image->data[idx + 1]]]; // Green channel
             image->data[idx + 2] = contrast_brightness_lut[gamma_lut[image->data[idx + 2]]]; // Blue channel
         }
@@ -172,7 +175,7 @@ void floydSteinbergDither(ImageData* image) {
             uint8_t newB = (oldB & 0xC0);
 
             // Update the image with the quantized values
-            image->data[idx] = newR;
+            image->data[idx]     = newR;
             image->data[idx + 1] = newG;
             image->data[idx + 2] = newB;
 
@@ -186,7 +189,7 @@ void floydSteinbergDither(ImageData* image) {
             //Check if the next pixel is valid, if so, update the value
             if (x < width - 1) {
                 int next_pixel_idx = idx + 3;
-                image->data[next_pixel_idx] = (uint8_t)fmin(255, fmax(0, image->data[next_pixel_idx] + errorR * 7 / 16));
+                image->data[next_pixel_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_pixel_idx]     + errorR * 7 / 16));
                 image->data[next_pixel_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_pixel_idx + 1] + errorG * 7 / 16));
                 image->data[next_pixel_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_pixel_idx + 2] + errorB * 7 / 16));
             }
@@ -196,20 +199,20 @@ void floydSteinbergDither(ImageData* image) {
                 // Check if the bottom left pixel is valid, if so update the value
                 if (x > 0) {
                     int next_row_left_idx = ((y + 1) * width + x - 1) * 3;
-                    image->data[next_row_left_idx] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx] + errorR * 3 / 16));
+                    image->data[next_row_left_idx]    = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx]      + errorR * 3 / 16));
                     image->data[next_row_left_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx + 1] + errorG * 3 / 16));
                     image->data[next_row_left_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx + 2] + errorB * 3 / 16));
                 }
                 // Check if the pixel below is valid, if so update the value
                 int next_row_idx = ((y + 1) * width + x) * 3;
-                image->data[next_row_idx] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx] + errorR * 5 / 16));
+                image->data[next_row_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx]     + errorR * 5 / 16));
                 image->data[next_row_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx + 1] + errorG * 5 / 16));
                 image->data[next_row_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx + 2] + errorB * 5 / 16));
 
                 // Check if the bottom right pixel is valid, if so update the value
                 if (x < width - 1) {
                     int next_row_right_idx = ((y + 1) * width + x + 1) * 3;
-                    image->data[next_row_right_idx] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx] + errorR * 1 / 16));
+                    image->data[next_row_right_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx]     + errorR * 1 / 16));
                     image->data[next_row_right_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx + 1] + errorG * 1 / 16));
                     image->data[next_row_right_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx + 2] + errorB * 1 / 16));
                 }
@@ -250,7 +253,7 @@ void jarvisDither(ImageData* image) {
             uint8_t newB = (oldB & 0xC0);
 
             // Update the image with the quantized values
-            image->data[idx] = newR;
+            image->data[idx]     = newR;
             image->data[idx + 1] = newG;
             image->data[idx + 2] = newB;
 
@@ -276,7 +279,7 @@ void jarvisDither(ImageData* image) {
                         // Only add error when the weighting from the matrix is above 0, to prevent a divde by zero error
                         if (error_weight > 0) {
                             // Distribute the error using the weighting from the matrix
-                            image->data[adj_idx] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx] + errorR * error_weight / 48));
+                            image->data[adj_idx]     = (uint8_t)fmin(255, fmax(0, image->data[adj_idx]     + errorR * error_weight / 48));
                             image->data[adj_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx + 1] + errorG * error_weight / 48));
                             image->data[adj_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx + 2] + errorB * error_weight / 48));
                         }
@@ -312,7 +315,7 @@ void atkinsonDither(ImageData* image) {
             uint8_t newB = (oldB & 0xC0);
 
             // Update the image with the quantized values
-            image->data[idx] = newR;
+            image->data[idx]     = newR;
             image->data[idx + 1] = newG;
             image->data[idx + 2] = newB;
 
@@ -339,21 +342,21 @@ void atkinsonDither(ImageData* image) {
             // Check if the next row is valid, if so add error
             if (y < height - 1) {
                 int next_row_idx = ((y + 1) * width + x) * 3;
-                image->data[next_row_idx] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx] + errorR));
+                image->data[next_row_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx]     + errorR));
                 image->data[next_row_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx + 1] + errorG));
                 image->data[next_row_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_idx + 2] + errorB));
 
                 // Check if the pixel below left is valid, if so add error
                 if (x > 0) {
                     int next_row_left_idx = ((y + 1) * width + x - 1) * 3;
-                    image->data[next_row_left_idx] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx] + errorR));
+                    image->data[next_row_left_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx]     + errorR));
                     image->data[next_row_left_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx + 1] + errorG));
                     image->data[next_row_left_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_left_idx + 2] + errorB));
                 }
                 // Check if pixel below right is valid, if so add error
                 if (x < width - 1) {
                     int next_row_right_idx = ((y + 1) * width + x + 1) * 3;
-                    image->data[next_row_right_idx] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx] + errorR));
+                    image->data[next_row_right_idx]     = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx]     + errorR));
                     image->data[next_row_right_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx + 1] + errorG));
                     image->data[next_row_right_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_right_idx + 2] + errorB));
                 }
@@ -361,7 +364,7 @@ void atkinsonDither(ImageData* image) {
             // Check if the row two below is valid, if so add error
             if (y < height - 2) {
                 int next_row_2_idx = ((y + 2) * width + x) * 3;
-                image->data[next_row_2_idx] = (uint8_t)fmin(255, fmax(0, image->data[next_row_2_idx] + errorR));
+                image->data[next_row_2_idx]      = (uint8_t)fmin(255, fmax(0, image->data[next_row_2_idx]    + errorR));
                 image->data[next_row_2_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[next_row_2_idx + 1] + errorG));
                 image->data[next_row_2_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[next_row_2_idx + 2] + errorB));
             }
@@ -382,27 +385,29 @@ void bayer16x16Dither(ImageData* image) {
         for (int x = 0; x < width; x++) {
             // Calculate the index for the current pixel
             int idx = (y * width + x) * 3;
+            
+            // Get dither threshold from the bayer matrix
+            int bayer_threshold = BAYER_MATRIX_16X16[y % BAYER_SIZE][x % BAYER_SIZE];
+            // Normalize bayer threshold to -128 to 127
+            float normalized_bayer = (float)(bayer_threshold - 128);
 
-            // Store the original color values
-            uint8_t oldR = image->data[idx];
-            uint8_t oldG = image->data[idx + 1];
-            uint8_t oldB = image->data[idx + 2];
+            int r = image->data[idx];
+            int g = image->data[idx + 1];
+            int b = image->data[idx + 2];
 
-            // Get the threshold from the Bayer Matrix based on the x and y coordinates
-           // The threshold is scaled to the range of 0-1
-            float thresholdR = (float)BAYER_MATRIX_16X16[y % BAYER_SIZE][x % BAYER_SIZE] / 255.0f;
-            float thresholdG = (float)BAYER_MATRIX_16X16[y % BAYER_SIZE][x % BAYER_SIZE] / 255.0f;
-            float thresholdB = (float)BAYER_MATRIX_16X16[y % BAYER_SIZE][x % BAYER_SIZE] / 255.0f;
+            // Apply scaled bayer dither
+            r = (int)round((float)r + (normalized_bayer / 8.0f));
+            g = (int)round((float)g + (normalized_bayer / 8.0f));
+            b = (int)round((float)b + (normalized_bayer / 8.0f));
 
-            // Apply the dithering using the threshold, and clamp the result between 0-255
-            int ditheredR = (int)fmin(255, fmax(0, (float)oldR + (thresholdR * 32) - 16));
-            int ditheredG = (int)fmin(255, fmax(0, (float)oldG + (thresholdG * 32) - 16));
-            int ditheredB = (int)fmin(255, fmax(0, (float)oldB + (thresholdB * 32) - 16));
+            // Quantize
+            r = (r > 255) ? 255 : (r < 0) ? 0 : r;
+            g = (g > 255) ? 255 : (g < 0) ? 0 : g;
+            b = (b > 255) ? 255 : (b < 0) ? 0 : b;
 
-            // Quantize to RGB332: extract top 3 bits for R and G, 2 bits for B
-            image->data[idx] = (ditheredR & 0xE0);
-            image->data[idx + 1] = (ditheredG & 0xE0);
-            image->data[idx + 2] = (ditheredB & 0xC0);
+            image->data[idx]     = (r & 0xE0);
+            image->data[idx + 1] = (g & 0xE0);
+            image->data[idx + 2] = (b & 0xC0);
         }
     }
 }
@@ -507,24 +512,24 @@ int write_image_data_to_file(const char* filename, const char* array_name, const
     }
 
     // Write the header for the C file
-    if (fprintf(fp, "#ifndef %s_H\n", array_name) < 0) goto error_close_file;
-    if (fprintf(fp, "#define %s_H\n\n", array_name) < 0) goto error_close_file;
-    if (fprintf(fp, "#include \"image_types.h\"\n\n") < 0) goto error_close_file;
+    if (fprintf(fp, "#ifndef %s_H\n", array_name) < 0)          goto error_close_file;
+    if (fprintf(fp, "#define %s_H\n\n", array_name) < 0)        goto error_close_file;
+    if (fprintf(fp, "#include \"image_types.h\"\n\n") < 0)      goto error_close_file;
 
     if (fprintf(fp, "/*\n") < 0) goto error_close_file;
-    if (fprintf(fp, "Contents of image_types.h:\n\n") < 0) goto error_close_file;
-    if (fprintf(fp, "#ifndef IMAGE_TYPES_H\n") < 0) goto error_close_file;
-    if (fprintf(fp, "#define IMAGE_TYPES_H\n\n") < 0) goto error_close_file;
-    if (fprintf(fp, "#include <stdint.h>\n\n") < 0) goto error_close_file;
-    if (fprintf(fp, "#define RGB332_FORMAT_ID 0x332\n\n") < 0) goto error_close_file;
-    if (fprintf(fp, "typedef struct {\n") < 0) goto error_close_file;
-    if (fprintf(fp, "    const uint8_t* data;\n") < 0) goto error_close_file;
-    if (fprintf(fp, "    uint16_t width;\n") < 0) goto error_close_file;
-    if (fprintf(fp, "    uint16_t height;\n") < 0) goto error_close_file;
-    if (fprintf(fp, "    uint16_t format_id;\n") < 0) goto error_close_file;
-    if (fprintf(fp, "} Image_t;\n\n") < 0) goto error_close_file;
-    if (fprintf(fp, "#endif // IMAGE_TYPES_H\n") < 0) goto error_close_file;
-    if (fprintf(fp, "*/\n\n") < 0) goto error_close_file;
+    if (fprintf(fp, "Contents of image_types.h:\n\n") < 0)      goto error_close_file;
+    if (fprintf(fp, "#ifndef IMAGE_TYPES_H\n") < 0)             goto error_close_file;
+    if (fprintf(fp, "#define IMAGE_TYPES_H\n\n") < 0)           goto error_close_file;
+    if (fprintf(fp, "#include <stdint.h>\n\n") < 0)             goto error_close_file;
+    if (fprintf(fp, "#define RGB332_FORMAT_ID 0x332\n\n") < 0)  goto error_close_file;
+    if (fprintf(fp, "typedef struct {\n") < 0)                  goto error_close_file;
+    if (fprintf(fp, "    const uint8_t* data;\n") < 0)          goto error_close_file;
+    if (fprintf(fp, "    uint16_t width;\n") < 0)               goto error_close_file;
+    if (fprintf(fp, "    uint16_t height;\n") < 0)              goto error_close_file;
+    if (fprintf(fp, "    uint16_t format_id;\n") < 0)           goto error_close_file;
+    if (fprintf(fp, "} Image_t;\n\n") < 0)                      goto error_close_file;
+    if (fprintf(fp, "#endif // IMAGE_TYPES_H\n") < 0)           goto error_close_file;
+    if (fprintf(fp, "*/\n\n") < 0)                              goto error_close_file;
 
     // Write the array data
     if (fprintf(fp, "static const uint8_t %s_data[%d] = {\n", array_name, image->width * image->height) < 0) goto error_close_file;
@@ -551,12 +556,12 @@ int write_image_data_to_file(const char* filename, const char* array_name, const
     if (fprintf(fp, "};\n\n") < 0) goto error_close_file;
     // Write the image struct to the file
     if (fprintf(fp, "static const Image_t %s_image = {\n", array_name) < 0) goto error_close_file;
-    if (fprintf(fp, "    .data = %s_data,\n", array_name) < 0) goto error_close_file;
-    if (fprintf(fp, "    .width = %d,\n", image->width) < 0) goto error_close_file;
-    if (fprintf(fp, "    .height = %d,\n", image->height) < 0) goto error_close_file;
-    if (fprintf(fp, "    .format_id = RGB332_FORMAT_ID\n") < 0) goto error_close_file;
-    if (fprintf(fp, "};\n\n") < 0) goto error_close_file;
-    if (fprintf(fp, "#endif // %s_H\n", array_name) < 0) goto error_close_file;
+    if (fprintf(fp, "    .data = %s_data,\n", array_name) < 0)              goto error_close_file;
+    if (fprintf(fp, "    .width = %d,\n", image->width) < 0)                goto error_close_file;
+    if (fprintf(fp, "    .height = %d,\n", image->height) < 0)              goto error_close_file;
+    if (fprintf(fp, "    .format_id = RGB332_FORMAT_ID\n") < 0)             goto error_close_file;
+    if (fprintf(fp, "};\n\n") < 0)                                          goto error_close_file;
+    if (fprintf(fp, "#endif // %s_H\n", array_name) < 0)                    goto error_close_file;
 
     // Close the file
     fclose(fp);
@@ -573,10 +578,13 @@ int process_image(ProgramOptions* opts) {
     uint8_t gamma_lut[LUT_SIZE] = { 0 };
     uint8_t contrast_brightness_lut[LUT_SIZE] = { 0 };
     DitherFunc dither_function = NULL;
-    char processed_filename[MAX_FILENAME_LENGTH];
-    char final_filename[MAX_FILENAME_LENGTH];
     char array_name[MAX_FILENAME_LENGTH] = { 0 };
+
+#ifdef DEBUG_BUILD
+    char final_filename[MAX_FILENAME_LENGTH];
+    char processed_filename[MAX_FILENAME_LENGTH];
     int snprintf_result;
+#endif
 
     // Check for invalid inputs
     if (opts == NULL) {
@@ -607,6 +615,7 @@ int process_image(ProgramOptions* opts) {
     process_image_lut(&image, gamma_lut, contrast_brightness_lut);
 
     // If debug mode is enabled, write a debug image
+#ifdef DEBUG_BUILD
     if (opts->debug_mode) {
         snprintf_result = snprintf(processed_filename, MAX_FILENAME_LENGTH, "%s_processed.bmp", opts->debug_filename);
         if (snprintf_result < 0 || snprintf_result >= MAX_FILENAME_LENGTH) {
@@ -616,13 +625,13 @@ int process_image(ProgramOptions* opts) {
         }
         stbi_write_bmp(processed_filename, image.width, image.height, 3, image.data);
     }
-
+#endif
     // Select the appropriate dithering function based on the specified method
     switch (opts->dither_method) {
-    case 0: dither_function = floydSteinbergDither; break;
-    case 1: dither_function = jarvisDither; break;
-    case 2: dither_function = atkinsonDither; break;
-    case 3: dither_function = bayer16x16Dither; break;
+    case 0:  dither_function = floydSteinbergDither; break;
+    case 1:  dither_function = jarvisDither;         break;
+    case 2:  dither_function = atkinsonDither;       break;
+    case 3:  dither_function = bayer16x16Dither;     break;
     default: dither_function = NULL;
     }
 
@@ -640,6 +649,7 @@ int process_image(ProgramOptions* opts) {
     }
 
     // If debug mode is enabled, write a debug image
+#ifdef DEBUG_BUILD
     if (opts->debug_mode) {
         snprintf_result = snprintf(final_filename, MAX_FILENAME_LENGTH, "%s_final.bmp", opts->debug_filename);
         if (snprintf_result < 0 || snprintf_result >= MAX_FILENAME_LENGTH) {
@@ -649,6 +659,7 @@ int process_image(ProgramOptions* opts) {
         }
         stbi_write_bmp(final_filename, image.width, image.height, 3, image.data);
     }
+#endif
     // Free the image data
     free_image_data(&image);
     return EXIT_SUCCESS;
@@ -661,10 +672,10 @@ void init_program_options(ProgramOptions* opts) {
 
     // Set the default program options
     opts->dither_method = -1; // -1 Indicates that no dither method is selected
-    opts->gamma = 1.0f;
-    opts->contrast = 0.0f;
-    opts->brightness = 1.0f;
-    opts->debug_mode = 0; // debug mode is off by default
+    opts->gamma         = 1.0f;
+    opts->contrast      = 0.0f;
+    opts->brightness    = 1.0f;
+    opts->debug_mode    = 0; // debug mode is off by default
 }
 
 int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) {
@@ -691,12 +702,14 @@ int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) {
             i++;
             // Parse the debug mode
         }
+#ifdef DEBUG_BUILD
         else if (strcmp(argv[i], "-debug") == 0 && i + 1 < argc) {
             opts->debug_mode = 1;
             strncpy(opts->debug_filename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
             i++;
             // Parse the gamma
         }
+#endif
         else if (strcmp(argv[i], "-g") == 0 && i + 1 < argc) {
             opts->gamma = (float)atof(argv[i + 1]);
             i++;
@@ -717,12 +730,14 @@ int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) {
             printf("  -i <input file>           : Specify input file\n");
             printf("  -o <output file>          : Specify output file\n");
             printf("  -dm <method>              : Set dithering method (0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson, 3: Bayer 16x16)\n");
+#ifdef DEBUG_BUILD
             printf("  -debug <debug_filename>   : Enable debug mode and specify debug file prefix\n");
+#endif            
             printf("  -g <gamma>                : Set gamma value (default: 1.0)\n");
             printf("  -c <contrast>             : Set contrast value (default: 0.0)\n");
             printf("  -b <brightness>           : Set brightness value (default: 1.0)\n");
             printf("  -h                        : Display this help message\n");
-            printf("Example: r3g3b2 -i tst.png -o tst.h -dm 0 -debug debug_output -g 1.0 -c 0.0 -b 1.0\n");
+            printf("Example: r3g3b2 -i tst.png -o tst.h -dm 0 -g 1.0 -c 0.0 -b 1.0\n");
             return 1;
             // Report if invalid option is passed
         }
