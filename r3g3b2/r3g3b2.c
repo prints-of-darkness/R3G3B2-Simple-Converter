@@ -8,7 +8,7 @@
 #include "bayer16x16.h"
 #include "color_lut.h"
 
-#define DEBUG_BUILD // uncomment for debug capabilities
+//#define DEBUG_BUILD // uncomment for debug capabilities
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
