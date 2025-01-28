@@ -14,11 +14,6 @@
 
 BEGIN_EXTERN_C
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-
 #include "image_typedef.h"
 #include "color.h"
 

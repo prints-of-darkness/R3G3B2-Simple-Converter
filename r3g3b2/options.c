@@ -1,4 +1,8 @@
 
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include "options.h"
 
 void init_program_options(ProgramOptions* opts) 

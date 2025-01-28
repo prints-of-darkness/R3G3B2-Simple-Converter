@@ -15,9 +15,8 @@
 BEGIN_EXTERN_C
 
 #include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+
+#include "options.h"
 
 #define MAX_FILENAME_LENGTH 1024
 

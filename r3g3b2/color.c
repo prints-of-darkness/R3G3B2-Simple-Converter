@@ -1,4 +1,6 @@
 
+#include <stdint.h>
+
 #include "constrains.h"
 #include "color.h"
 

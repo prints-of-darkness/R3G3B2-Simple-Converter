@@ -1,11 +1,17 @@
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 
+#include "luts.h"
 #include "dither.h"
 #include "debug.h"
 #include "constrains.h"
 #include "fileio.h"
+#include "image_typedef.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 void free_image_memory(ImageData* image) 
 {

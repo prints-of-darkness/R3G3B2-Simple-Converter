@@ -1,4 +1,10 @@
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <math.h>
+
+#include "luts.h"
 #include "constrains.h"
 #include "dither.h"
 #include "fileio.h"

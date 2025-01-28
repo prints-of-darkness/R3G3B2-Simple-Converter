@@ -1,4 +1,9 @@
 
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
 #include "constrains.h"
 #include "dither.h"
 

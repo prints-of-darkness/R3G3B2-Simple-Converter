@@ -14,9 +14,6 @@
 
 BEGIN_EXTERN_C
 
-#include <stdbool.h>
-#include <stdint.h>
-
 #include "image_typedef.h"
 
 uint8_t reduceBits(uint8_t value, int max_value);

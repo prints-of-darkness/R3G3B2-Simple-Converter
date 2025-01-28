@@ -14,7 +14,6 @@
 
 BEGIN_EXTERN_C
 
-
 #define LUT_SIZE 256
 #define RGB_COMPONENTS 3
 #define MAX_COLOUR_VALUE 255
@@ -26,7 +25,6 @@ BEGIN_EXTERN_C
 #define BLUE_LEVELS 16
 
 #define BAYER_SIZE 16
-
 
 END_EXTERN_C
 

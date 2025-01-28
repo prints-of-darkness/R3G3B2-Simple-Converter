@@ -14,12 +14,10 @@
 
 BEGIN_EXTERN_C
 
-#include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "options.h"
-#include "luts.h"
+#include "image_typedef.h"
 
 void free_image_memory(ImageData* image);
 

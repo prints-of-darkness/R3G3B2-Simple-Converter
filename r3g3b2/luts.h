@@ -14,11 +14,6 @@
 
 BEGIN_EXTERN_C
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <math.h>
-
 #include "image_typedef.h"
 
 void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut);
