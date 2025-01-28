@@ -18,7 +18,7 @@
 #include "bayer16x16.h"
 #include "color_lut.h"
 
-#define DEBUG_BUILD //uncomment for debug capabilities
+//#define DEBUG_BUILD //uncomment for debug capabilities
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -144,7 +144,7 @@ void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b) {
     // Then, extract the red, green, and blue channels using bit shifts and masks
     *r = (color_lut[rgb332] >> 16) & 0xFF; // Extract red channel
     *g = (color_lut[rgb332] >> 8) & 0xFF;  // Extract green channel
-    *b = color_lut[rgb332] & 0xFF;       // Extract blue channel
+    *b = color_lut[rgb332] & 0xFF;         // Extract blue channel
 }
 
 // --- Dithering Algorithm Functions ---
