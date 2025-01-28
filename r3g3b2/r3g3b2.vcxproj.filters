@@ -32,5 +32,8 @@
     <ClInclude Include="bayer16x16.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="color_map.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -7,8 +7,9 @@
 
 #include "bayer16x16.h"
 #include "color_lut.h"
+#include "color_map.h"
 
-//#define DEBUG_BUILD // uncomment for debug capabilities
+#define DEBUG_BUILD // uncomment for debug capabilities
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -82,6 +83,119 @@ char* trim_filename_copy(const char* filename, char* dest, size_t dest_size);
 void init_program_options(ProgramOptions* opts);
 int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts);
 int process_image(ProgramOptions* opts);
+
+
+
+
+
+
+
+
+
+//RGBColor r3g3b2Palette[R3G3B2_COLOR_COUNT] = {
+//    {0x00, 0x00, 0x00},
+//};
+
+
+// Helper function to reduce bit depth of a colour
+static uint8_t reduceBits(uint8_t value, int max_value)
+{
+    return (uint8_t)(value * max_value / 256.0);
+}
+
+// Function to generate the R3G3B2 color palette
+//void generateR3G3B2Palette(RGBColor* palette) {
+//    for (int i = 0; i < R3G3B2_COLOR_COUNT; i++) {
+//        // Extract individual color components
+//        uint8_t r = (i >> 5) & 0x07; // 3 bits for Red
+//        uint8_t g = (i >> 2) & 0x07; // 3 bits for Green
+//        uint8_t b = (i & 0x03);      // 2 bits for Blue
+//
+//        // Scale the components to 0-255 range
+//        palette[i].r = (r * MAX_COLOUR_VALUE) / 7;
+//        palette[i].g = (g * MAX_COLOUR_VALUE) / 7;
+//        palette[i].b = (b * MAX_COLOUR_VALUE) / 3;
+//
+//        printf("{0x%.2X, 0x%.2X, 0x%.2X},", palette[i].r, palette[i].g, palette[i].b);
+//        if((i %16) == 15) printf("\n");
+//    }
+//    while (1);
+//}
+
+// Function to calculate Euclidean distance
+float colorDistance(const RGBColor* color1, const RGBColor* color2) {
+    float dr = (float)(color2->r - color1->r);
+    float dg = (float)(color2->g - color1->g);
+    float db = (float)(color2->b - color1->b);
+    return sqrtf(dr * dr + dg * dg + db * db);
+}
+
+// Function to create the smaller color mapping LUT
+//void createColorMapLUT_Reduced(const RGBColor* r3g3b2Palette, uint8_t* colorMapLUT_reduced) {
+//    for (int r = 0; r < RED_LEVELS; r++) {
+//        for (int g = 0; g < GREEN_LEVELS; g++) {
+//            for (int b = 0; b < BLUE_LEVELS; b++)
+//            {
+//                RGBColor inputColor = { (uint8_t)(r * 255 / (RED_LEVELS - 1.0f)), (uint8_t)(g * 255 / (GREEN_LEVELS - 1.0f)), (uint8_t)(b * 255 / (BLUE_LEVELS - 1.0f)) };
+//                float minDistance = INFINITY;
+//                int bestMatchIndex = 0;
+//
+//                for (int i = 0; i < R3G3B2_COLOR_COUNT; i++) {
+//                    float distance = colorDistance(&inputColor, &r3g3b2Palette[i]);
+//                    if (distance < minDistance) {
+//                        minDistance = distance;
+//                        bestMatchIndex = i;
+//                    }
+//                }
+//
+//                // Store the index of the closest color in the LUT
+//                int index = (r << (8)) | (g << 4) | b;
+//                colorMapLUT_reduced[index] = (uint8_t)bestMatchIndex;
+//
+//                printf("0x%.2X, ", colorMapLUT_reduced[index]);
+//                if((index %16) == 15) printf("\n");
+//            }
+//        }
+//    }
+//}
+
+
+// Function to map a single RGB color to its closest R3G3B2 color, using the LUT
+uint8_t mapColorToR3G3B2_Reduced(/*const uint8_t* colorMapLUT_reduced,*/ uint8_t r, uint8_t g, uint8_t b)
+{
+    uint8_t r_reduced = reduceBits(r, RED_LEVELS - 1);
+    uint8_t g_reduced = reduceBits(g, GREEN_LEVELS - 1);
+    uint8_t b_reduced = reduceBits(b, BLUE_LEVELS - 1);
+
+    int index = (r_reduced << (8)) | (g_reduced << 4) | b_reduced;
+    return colorMapLUT_reduced[index];
+}
+
+// Modified quantize pixel function to use color mapping with a reduced table
+void quantize_pixel_with_map_reduced(uint8_t* r, uint8_t* g, uint8_t* b)
+{
+    uint8_t r3g3b2_index = mapColorToR3G3B2_Reduced(*r, *g, *b);
+
+    RGBColor closestColor;
+    //RGBColor palette[R3G3B2_COLOR_COUNT];
+
+    //generateR3G3B2Palette(palette);
+    closestColor = r3g3b2Palette[r3g3b2_index];// palette[r3g3b2_index];
+
+    *r = closestColor.r;
+    *g = closestColor.g;
+    *b = closestColor.b;
+}
+
+
+
+
+
+
+
+
+
+
 
 // --- Memory Management Functions ---
 void free_image_memory(ImageData* image) {
@@ -206,6 +320,12 @@ static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, i
     const int width = image->width;
     const int height = image->height;
 
+    //RGBColor r3g3b2Palette[R3G3B2_COLOR_COUNT];
+    //uint8_t colorMapLUT_reduced[RED_LEVELS * GREEN_LEVELS * BLUE_LEVELS] = { 0 };
+
+    //generateR3G3B2Palette(r3g3b2Palette);
+    //createColorMapLUT_Reduced(r3g3b2Palette, colorMapLUT_reduced);
+
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
@@ -218,7 +338,8 @@ static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, i
             uint8_t newR = oldR;
             uint8_t newG = oldG;
             uint8_t newB = oldB;
-            quantize_pixel(&newR, &newG, &newB);
+            //quantize_pixel(&newR, &newG, &newB);
+            quantize_pixel_with_map_reduced(&newR, &newG, &newB);
 
             image->data[idx] = newR;
             image->data[idx + 1] = newG;
@@ -255,6 +376,12 @@ void bayer16x16Dither(ImageData* image) {
     const int width = image->width;
     const int height = image->height;
 
+    //RGBColor r3g3b2Palette[R3G3B2_COLOR_COUNT];
+    //uint8_t colorMapLUT_reduced[RED_LEVELS * GREEN_LEVELS * BLUE_LEVELS] = { 0 };
+
+    //generateR3G3B2Palette(r3g3b2Palette);
+    //createColorMapLUT_Reduced(r3g3b2Palette, colorMapLUT_reduced);
+
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             int idx = (y * width + x) * RGB_COMPONENTS;
@@ -274,14 +401,15 @@ void bayer16x16Dither(ImageData* image) {
             g = (g > MAX_COLOUR_VALUE) ? MAX_COLOUR_VALUE : (g < 0) ? 0 : g;
             b = (b > MAX_COLOUR_VALUE) ? MAX_COLOUR_VALUE : (b < 0) ? 0 : b;
 
-            quantize_pixel((uint8_t*)&r, (uint8_t*)&g, (uint8_t*)&b);
+            //quantize_pixel((uint8_t*)&r, (uint8_t*)&g, (uint8_t*)&b);
+            quantize_pixel_with_map_reduced((uint8_t*)&r, (uint8_t*)&g, (uint8_t*)&b);
+
             image->data[idx] = r;
             image->data[idx + 1] = g;
             image->data[idx + 2] = b;
         }
     }
 }
-
 
 // --- File IO Functions ---
 int load_image(const char* filename, ImageData* image) {
