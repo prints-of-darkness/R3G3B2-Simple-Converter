@@ -726,7 +726,7 @@ int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) {
             // Print the help message
         }
         else if (strcmp(argv[i], "-h") == 0) {
-            printf("Usage: r3g3b2 -i <input file> -o <output file> [-dm <method>] [-debug <debug_filename>] [-g <gamma>] [-c <contrast>] [-b <brightness>]\n");
+            printf("Usage: r3g3b2 -i <input file> -o <output file> [-dm <method>] [-g <gamma>] [-c <contrast>] [-b <brightness>]\n");
             printf("  -i <input file>           : Specify input file\n");
             printf("  -o <output file>          : Specify output file\n");
             printf("  -dm <method>              : Set dithering method (0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson, 3: Bayer 16x16)\n");
