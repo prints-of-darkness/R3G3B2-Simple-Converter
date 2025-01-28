@@ -1,23 +1,14 @@
-/*
-    r3g3b2.c
-
-    Converts an RGB image to 8bpp RGB332. (needed for LT7683 TFT graphics controller)
-
-    (MJM + AI) 2025
-
-*/
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
+#include <stdbool.h>
 
 #include "bayer16x16.h"
 #include "color_lut.h"
 
-#define DEBUG_BUILD //uncomment for debug capabilities
+#define DEBUG_BUILD // uncomment for debug capabilities
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -27,8 +18,10 @@
 #include "stb_image_write.h"
 #endif
 
-#define LUT_SIZE 256
+// --- Constants ---
 #define MAX_FILENAME_LENGTH 1024
+#define RGB_COMPONENTS 3
+#define MAX_COLOUR_VALUE 255
 
 // --- Data Structures ---
 typedef struct {
@@ -41,7 +34,7 @@ typedef struct {
     float gamma;
     float contrast;
     float brightness;
-    int debug_mode;
+    bool debug_mode;
 } ProgramOptions;
 
 typedef struct {
@@ -59,13 +52,14 @@ typedef struct {
 
 // --- Function Prototypes ---
 // Memory management
-void* mem_alloc_checked(size_t size, const char* location);
+void free_image_memory(ImageData* image);
 
 // LUT and image processing
 static void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut);
-static void process_image_lut(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut);
+static void process_image_with_luts(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut);
 static uint8_t rgbToRgb332(uint8_t r, uint8_t g, uint8_t b);
 static void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b);
+static void quantize_pixel(uint8_t* r, uint8_t* g, uint8_t* b);
 
 // Dithering algorithms
 typedef void (*DitherFunc)(ImageData* image);
@@ -82,7 +76,6 @@ static int write_image_struct(FILE* fp, const char* array_name, const ImageData*
 static int write_c_footer(FILE* fp, const char* array_name);
 int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image);
 int load_image(const char* filename, ImageData* image);
-void free_image_data(ImageData* image);
 char* trim_filename_copy(const char* filename, char* dest, size_t dest_size);
 
 // Command line processing
@@ -90,83 +83,73 @@ void init_program_options(ProgramOptions* opts);
 int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts);
 int process_image(ProgramOptions* opts);
 
-// --- Helper Functions ---
+// --- Memory Management Functions ---
+void free_image_memory(ImageData* image) {
+    if (!image) return;
 
-//  Error reporting for failed memory allocation
-void mem_alloc_failed(const char* location)
-{
-    fprintf(stderr, "Memory allocation failed in %s\n", location);
-    exit(EXIT_FAILURE);
-}
-
-// Allocation check function
-void* mem_alloc_checked(size_t size, const char* location) {
-    void* ptr = malloc(size);
-    if (!ptr) {
-        mem_alloc_failed(location);
+    if (image->data)
+    {
+        stbi_image_free(image->data);
     }
-    return ptr;
+    image->data = NULL;
+    image->width = 0;
+    image->height = 0;
 }
 
 // --- LUT and image processing functions ---
 
 // Function to initialize the look-up tables (LUTs) for color conversion
-static void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut) {
-    float value, factor;
-
-    if (!gamma_lut || !contrast_brightness_lut) {
+static void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut)
+{
+    if (!gamma_lut || !contrast_brightness_lut)
+    {
         fprintf(stderr, "Error: Null pointer passed to LUT initialization.\n");
         exit(EXIT_FAILURE);
     }
 
-    // Calculate the contrast factor based on the given contrast
-    factor = (259.0f * (contrast + 255.0f)) / (255.0f * (259.0f - contrast));
+    float factor = (259.0f * (contrast + 255.0f)) / (255.0f * (259.0f - contrast));
 
-    for (int i = 0; i < LUT_SIZE; i++) {
-        value = i / 255.0f;                 // Normalize the input to the 0-1 range
-        value = powf(value, 1.0f / gamma);   // Apply gamma correction
-        value = factor * (value * brightness - 0.5f) + 0.5f;  // Apply contrast and brightness adjustments
-        value = fmaxf(0.0f, fminf(value, 1.0f)); // Clamp the value to ensure it stays within 0-1
-
-        contrast_brightness_lut[i] = (uint8_t)(value * 255.0f);  // Scale the result back to 0-255 and store in the contrast/brightness LUT
-        gamma_lut[i] = (uint8_t)(powf(i / 255.0f, 1.0f / gamma) * 255.0f); // Apply gamma correction and store in the gamma LUT
+    for (int i = 0; i < LUT_SIZE; i++)
+    {
+        float value = (float)i / (float)MAX_COLOUR_VALUE;                // Normalize the input to the 0-1 range
+        value = powf(value, 1.0f / gamma);                               // Apply gamma correction
+        value = factor * (value * brightness - 0.5f) + 0.5f;              // Apply contrast and brightness adjustments
+        value = fmaxf(0.0f, fminf(value, 1.0f));                        // Clamp the value to ensure it stays within 0-1
+        contrast_brightness_lut[i] = (uint8_t)(value * (float)MAX_COLOUR_VALUE);   // Scale the result back to 0-255 and store in the contrast/brightness LUT
+        gamma_lut[i] = (uint8_t)(powf((float)i / (float)MAX_COLOUR_VALUE, 1.0f / gamma) * (float)MAX_COLOUR_VALUE); // Apply gamma correction and store in the gamma LUT
     }
-    return;
 }
 
-static void process_image_lut(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut) {
+static void process_image_with_luts(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut)
+{
     if (!image || !image->data || !gamma_lut || !contrast_brightness_lut)
     {
-        fprintf(stderr, "Error: Null pointer passed to process_image_lut.\n");
+        fprintf(stderr, "Error: Null pointer passed to process_image_with_luts.\n");
         return;
     }
 
     for (int y = 0; y < image->height; y++) {
         for (int x = 0; x < image->width; x++) {
-            // Calculate the index into the image data array
-            int idx = (y * image->width + x) * 3;
-
-            // Apply the LUT transformations
-            image->data[idx]     = contrast_brightness_lut[gamma_lut[image->data[idx]]];   // Red channel
+            int idx = (y * image->width + x) * RGB_COMPONENTS;
+            image->data[idx] = contrast_brightness_lut[gamma_lut[image->data[idx]]];     // Red channel
             image->data[idx + 1] = contrast_brightness_lut[gamma_lut[image->data[idx + 1]]]; // Green channel
             image->data[idx + 2] = contrast_brightness_lut[gamma_lut[image->data[idx + 2]]]; // Blue channel
         }
     }
 }
 
-static uint8_t rgbToRgb332(uint8_t r, uint8_t g, uint8_t b) {
-    // Extract the top 3 bits of red, top 3 bits of green (shifted), and top 2 bits of blue (shifted)
-    // and combine them into an RGB332 byte
+static uint8_t rgbToRgb332(uint8_t r, uint8_t g, uint8_t b)
+{
     return ((r & 0xE0) | ((g & 0xE0) >> 3) | (b >> 6));
 }
 
-static void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b) {
+static void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b)
+{
     if (!r || !g || !b) {
         fprintf(stderr, "Error: Null pointer passed to rgb332ToRgb.\n");
         return;
     }
-    // Look up the RGB values from the color_lut using rgb332 as an index
-    // Then, extract the red, green, and blue channels using bit shifts and masks
+
     *r = (color_lut[rgb332] >> 16) & 0xFF; // Extract red channel
     *g = (color_lut[rgb332] >> 8) & 0xFF;  // Extract green channel
     *b = color_lut[rgb332] & 0xFF;         // Extract blue channel
@@ -174,9 +157,16 @@ static void rgb332ToRgb(uint8_t rgb332, uint8_t* r, uint8_t* g, uint8_t* b) {
 
 // --- Dithering Algorithm Functions ---
 
+static void quantize_pixel(uint8_t* r, uint8_t* g, uint8_t* b)
+{
+    *r = (*r & 0xE0);
+    *g = (*g & 0xE0);
+    *b = (*b & 0xC0);
+}
+
 void floydSteinbergDither(ImageData* image)
 {
-    ErrorDiffusionEntry matrix[] = {
+    const ErrorDiffusionEntry matrix[] = {
         { 1, 0, 7.0f / 16.0f },
         {-1, 1, 3.0f / 16.0f },
         { 0, 1, 5.0f / 16.0f },
@@ -187,7 +177,7 @@ void floydSteinbergDither(ImageData* image)
 
 void jarvisDither(ImageData* image)
 {
-    ErrorDiffusionEntry matrix[] = {
+    const ErrorDiffusionEntry matrix[] = {
     { 1, 0, 7.0f / 48.0f }, { 2, 0, 5.0f / 48.0f },
     {-2, 1, 3.0f / 48.0f }, {-1, 1, 5.0f / 48.0f }, { 0, 1, 7.0f / 48.0f }, { 1, 1, 5.0f / 48.0f }, { 2, 1, 3.0f / 48.0f },
     {-2, 2, 1.0f / 48.0f }, {-1, 2, 3.0f / 48.0f }, { 0, 2, 5.0f / 48.0f }, { 1, 2, 3.0f / 48.0f }, { 2, 2, 1.0f / 48.0f }
@@ -197,7 +187,7 @@ void jarvisDither(ImageData* image)
 
 void atkinsonDither(ImageData* image)
 {
-    ErrorDiffusionEntry matrix[] = {
+    const ErrorDiffusionEntry matrix[] = {
     { 1, 0, 1.0f / 8.0f }, { 2, 0, 1.0f / 8.0f },
     {-1, 1, 1.0f / 8.0f }, { 0, 1, 1.0f / 8.0f }, { 1, 1, 1.0f / 8.0f },
     { 0, 2, 1.0f / 8.0f }
@@ -207,27 +197,26 @@ void atkinsonDither(ImageData* image)
 
 static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matrix_size)
 {
-    int width = image->width;
-    int height = image->height;
-
     if (!image || !image->data)
     {
         fprintf(stderr, "Error: Null pointer passed to genericDither.\n");
         return;
     }
 
+    const int width = image->width;
+    const int height = image->height;
+
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
         {
-            int idx = (y * width + x) * 3;
+            int idx = (y * width + x) * RGB_COMPONENTS;
             uint8_t oldR = image->data[idx];
             uint8_t oldG = image->data[idx + 1];
             uint8_t oldB = image->data[idx + 2];
 
-            uint8_t newR = (oldR & 0xE0);
-            uint8_t newG = (oldG & 0xE0);
-            uint8_t newB = (oldB & 0xC0);
+            uint8_t newR, newG, newB;
+            quantize_pixel(&newR, &newG, &newB);
 
             image->data[idx] = newR;
             image->data[idx + 1] = newG;
@@ -244,15 +233,16 @@ static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, i
 
                 if (nx >= 0 && nx < width && ny >= 0 && ny < height)
                 {
-                    int adj_idx = (ny * width + nx) * 3;
-                    image->data[adj_idx] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx] + errorR * matrix[i].weight));
-                    image->data[adj_idx + 1] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx + 1] + errorG * matrix[i].weight));
-                    image->data[adj_idx + 2] = (uint8_t)fmin(255, fmax(0, image->data[adj_idx + 2] + errorB * matrix[i].weight));
+                    int adj_idx = (ny * width + nx) * RGB_COMPONENTS;
+                    image->data[adj_idx] = (uint8_t)fmin(MAX_COLOUR_VALUE, fmax(0, image->data[adj_idx] + errorR * matrix[i].weight));
+                    image->data[adj_idx + 1] = (uint8_t)fmin(MAX_COLOUR_VALUE, fmax(0, image->data[adj_idx + 1] + errorG * matrix[i].weight));
+                    image->data[adj_idx + 2] = (uint8_t)fmin(MAX_COLOUR_VALUE, fmax(0, image->data[adj_idx + 2] + errorB * matrix[i].weight));
                 }
             }
         }
     }
 }
+
 
 void bayer16x16Dither(ImageData* image) {
     if (!image || !image->data) {
@@ -260,116 +250,87 @@ void bayer16x16Dither(ImageData* image) {
         return;
     }
 
-    int width = image->width;
-    int height = image->height;
+    const int width = image->width;
+    const int height = image->height;
 
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            // Calculate the index for the current pixel
-            int idx = (y * width + x) * 3;
+            int idx = (y * width + x) * RGB_COMPONENTS;
 
-            // Get dither threshold from the bayer matrix
             int bayer_threshold = BAYER_MATRIX_16X16[y % BAYER_SIZE][x % BAYER_SIZE];
-            // Normalize bayer threshold to -128 to 127
             float normalized_bayer = (float)(bayer_threshold - 128);
 
             int r = image->data[idx];
             int g = image->data[idx + 1];
             int b = image->data[idx + 2];
 
-            // Apply scaled bayer dither
             r = (int)round((float)r + (normalized_bayer / 8.0f));
             g = (int)round((float)g + (normalized_bayer / 8.0f));
             b = (int)round((float)b + (normalized_bayer / 8.0f));
 
-            // Quantize
-            r = (r > 255) ? 255 : (r < 0) ? 0 : r;
-            g = (g > 255) ? 255 : (g < 0) ? 0 : g;
-            b = (b > 255) ? 255 : (b < 0) ? 0 : b;
+            r = (r > MAX_COLOUR_VALUE) ? MAX_COLOUR_VALUE : (r < 0) ? 0 : r;
+            g = (g > MAX_COLOUR_VALUE) ? MAX_COLOUR_VALUE : (g < 0) ? 0 : g;
+            b = (b > MAX_COLOUR_VALUE) ? MAX_COLOUR_VALUE : (b < 0) ? 0 : b;
 
-            image->data[idx] = (r & 0xE0);
-            image->data[idx + 1] = (g & 0xE0);
-            image->data[idx + 2] = (b & 0xC0);
+            quantize_pixel((uint8_t*)&r, (uint8_t*)&g, (uint8_t*)&b);
+            image->data[idx] = r;
+            image->data[idx + 1] = g;
+            image->data[idx + 2] = b;
         }
     }
 }
 
+
 // --- File IO Functions ---
 int load_image(const char* filename, ImageData* image) {
     int n;
-
     if (!filename || !image) {
         fprintf(stderr, "Error: Null pointer passed to load_image.\n");
         return EXIT_FAILURE;
     }
 
-    // Load the image using stb_image, requesting 3 components (RGB)
-    image->data = stbi_load(filename, &image->width, &image->height, &n, 3);
+    image->data = stbi_load(filename, &image->width, &image->height, &n, RGB_COMPONENTS);
 
-    // Check if image loading failed
     if (!image->data) {
         fprintf(stderr, "Failed to load image: %s\n", filename);
         return EXIT_FAILURE;
     }
-
-    return EXIT_SUCCESS; // Image loaded successfully
+    return EXIT_SUCCESS;
 }
 
-void free_image_data(ImageData* image) {
-    // Check if the image and its data are valid before attempting to free memory
-    if (image && image->data) {
-        // Free the image data using stb_image_free
-        stbi_image_free(image->data);
-        // Reset the image data pointer, width and height to avoid use after free
-        image->data = NULL;
-        image->width = 0;
-        image->height = 0;
-    }
-}
-
-char* trim_filename_copy(const char* filename, char* dest, size_t dest_size) {
-    // Check for invalid inputs
+char* trim_filename_copy(const char* filename, char* dest, size_t dest_size)
+{
     if (!filename || !dest || dest_size == 0) {
         return NULL;
     }
-
-    // Clear the destination string by setting first byte to null terminator
     dest[0] = '\0';
 
-    // Check for empty filename
     if (filename[0] == '\0') {
         return dest;
     }
 
-    // Find the last occurrence of a dot in the filename
-    char* dot = strrchr(filename, '.');
+    const char* dot = strrchr(filename, '.');
     size_t length;
 
-    // If there is no dot, or if the dot is the first character, then the entire filename should be copied
     if (!dot || dot == filename) {
         length = strlen(filename);
         if (length >= dest_size)
         {
-            // If the filename is longer than the destination buffer, then copy only as much as will fit
             strncpy(dest, filename, dest_size - 1);
             dest[dest_size - 1] = '\0';
         }
         else {
-            // If the filename is smaller than the buffer, then copy entire filename
             strcpy(dest, filename);
         }
         return dest;
     }
     else {
-        // Calculate the length of the filename up to the dot
         length = dot - filename;
         if (length >= dest_size) {
-            // If the length is longer than the destination buffer, then copy only as much as will fit
             strncpy(dest, filename, dest_size - 1);
             dest[dest_size - 1] = '\0';
         }
         else {
-            // If the filename up to the dot is smaller than the buffer, then copy it
             strncpy(dest, filename, length);
             dest[length] = '\0';
         }
@@ -377,8 +338,9 @@ char* trim_filename_copy(const char* filename, char* dest, size_t dest_size) {
     }
 }
 
-int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image) {
-    FILE* fp;
+int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image)
+{
+    FILE* fp = NULL;
 
     if (!filename || !array_name || !image || !image->data)
     {
@@ -392,16 +354,19 @@ int write_image_data_to_file(const char* filename, const char* array_name, const
         return EXIT_FAILURE;
     }
 
-    if (write_c_header(fp, array_name) != EXIT_SUCCESS)            goto error_close_file;
-    if (write_image_data(fp, array_name, image) != EXIT_SUCCESS)   goto error_close_file;
+    if (write_c_header(fp, array_name) != EXIT_SUCCESS)   goto error_close_file;
+    if (write_image_data(fp, array_name, image) != EXIT_SUCCESS)  goto error_close_file;
     if (write_image_struct(fp, array_name, image) != EXIT_SUCCESS) goto error_close_file;
-    if (write_c_footer(fp, array_name) != EXIT_SUCCESS)            goto error_close_file;
+    if (write_c_footer(fp, array_name) != EXIT_SUCCESS)  goto error_close_file;
 
     fclose(fp);
     return EXIT_SUCCESS;
 
 error_close_file:
-    fclose(fp);
+    if (fp != NULL)
+    {
+        fclose(fp);
+    }
     return EXIT_FAILURE;
 }
 
@@ -441,7 +406,7 @@ static int write_image_data(FILE* fp, const char* array_name, const ImageData* i
     {
         for (int x = 0; x < image->width; x++)
         {
-            int idx = (y * image->width + x) * 3;
+            int idx = (y * image->width + x) * RGB_COMPONENTS;
             uint8_t rgb332 = rgbToRgb332(image->data[idx], image->data[idx + 1], image->data[idx + 2]);
             if (fprintf(fp, "0x%.2X, ", rgb332) < 0) return EXIT_FAILURE;
 
@@ -474,60 +439,59 @@ static int write_c_footer(FILE* fp, const char* array_name)
     return EXIT_SUCCESS;
 }
 
-int process_image(ProgramOptions* opts) {
+int process_image(ProgramOptions* opts)
+{
     ImageData image = { 0 };
     uint8_t gamma_lut[LUT_SIZE] = { 0 };
     uint8_t contrast_brightness_lut[LUT_SIZE] = { 0 };
     DitherFunc dither_function = NULL;
     char array_name[MAX_FILENAME_LENGTH] = { 0 };
-
-#ifdef DEBUG_BUILD
     char final_filename[MAX_FILENAME_LENGTH];
     char processed_filename[MAX_FILENAME_LENGTH];
     int snprintf_result;
-#endif
 
-    // Check for invalid inputs
+
     if (!opts) {
         fprintf(stderr, "Error: Null pointer passed to process_image.\n");
         return EXIT_FAILURE;
     }
 
-    // Check if input filename has been specified
     if (opts->infilename[0] == '\0') {
         fprintf(stderr, "No input file specified.\n");
         return EXIT_FAILURE;
     }
-    // Check if output filename has been specified
+
     if (opts->outfilename[0] == '\0') {
         fprintf(stderr, "No output file specified.\n");
         return EXIT_FAILURE;
     }
 
-    // Load the input image
-    if (load_image(opts->infilename, &image) != EXIT_SUCCESS) {
+
+    if (load_image(opts->infilename, &image) != EXIT_SUCCESS)
+    {
         return EXIT_FAILURE;
     }
 
-    // Initialise the look up tables for gamma, contrast, and brightness
+
     initialize_luts(opts->gamma, opts->contrast, opts->brightness, gamma_lut, contrast_brightness_lut);
 
-    // Process the image data by applying the look up tables
-    process_image_lut(&image, gamma_lut, contrast_brightness_lut);
 
-    // If debug mode is enabled, write a debug image
+    process_image_with_luts(&image, gamma_lut, contrast_brightness_lut);
+
 #ifdef DEBUG_BUILD
-    if (opts->debug_mode) {
+    if (opts->debug_mode)
+    {
         snprintf_result = snprintf(processed_filename, MAX_FILENAME_LENGTH, "%s_processed.bmp", opts->debug_filename);
-        if (snprintf_result < 0 || snprintf_result >= MAX_FILENAME_LENGTH) {
+        if (snprintf_result < 0 || snprintf_result >= MAX_FILENAME_LENGTH)
+        {
             fprintf(stderr, "Error: Could not create debug filename.\n");
-            free_image_data(&image);
+            free_image_memory(&image);
             return EXIT_FAILURE;
         }
-        stbi_write_bmp(processed_filename, image.width, image.height, 3, image.data);
+        stbi_write_bmp(processed_filename, image.width, image.height, RGB_COMPONENTS, image.data);
     }
 #endif
-    // Select the appropriate dithering function based on the specified method
+
     switch (opts->dither_method) {
     case 0:  dither_function = floydSteinbergDither; break;
     case 1:  dither_function = jarvisDither;         break;
@@ -536,95 +500,135 @@ int process_image(ProgramOptions* opts) {
     default: dither_function = NULL;
     }
 
-    // Apply the dithering to the image if a dither function has been selected
     if (dither_function != NULL)
+    {
         dither_function(&image);
+    }
 
-    // Trim the output filename to create an array name
     trim_filename_copy(opts->outfilename, array_name, MAX_FILENAME_LENGTH);
 
-    // Write the image data to the file
     if (write_image_data_to_file(opts->outfilename, array_name, &image) != EXIT_SUCCESS) {
-        free_image_data(&image);
+        free_image_memory(&image);
         return EXIT_FAILURE;
     }
 
-    // If debug mode is enabled, write a debug image
 #ifdef DEBUG_BUILD
-    if (opts->debug_mode) {
+    if (opts->debug_mode)
+    {
         snprintf_result = snprintf(final_filename, MAX_FILENAME_LENGTH, "%s_final.bmp", opts->debug_filename);
-        if (snprintf_result < 0 || snprintf_result >= MAX_FILENAME_LENGTH) {
+        if (snprintf_result < 0 || snprintf_result >= MAX_FILENAME_LENGTH)
+        {
             fprintf(stderr, "Error: Could not create debug filename.\n");
-            free_image_data(&image);
+            free_image_memory(&image);
             return EXIT_FAILURE;
         }
-        stbi_write_bmp(final_filename, image.width, image.height, 3, image.data);
+
+        stbi_write_bmp(final_filename, image.width, image.height, RGB_COMPONENTS, image.data);
     }
 #endif
-    // Free the image data
-    free_image_data(&image);
+
+    free_image_memory(&image);
     return EXIT_SUCCESS;
 }
 
 // --- Command Line Processing ---
 void init_program_options(ProgramOptions* opts) {
-    // Initialize the entire struct to 0
+    if (!opts) return;
     memset(opts, 0, sizeof(ProgramOptions));
-
-    // Set the default program options
-    opts->dither_method = -1; // -1 Indicates that no dither method is selected
+    opts->dither_method = -1;
     opts->gamma = 1.0f;
     opts->contrast = 0.0f;
     opts->brightness = 1.0f;
-    opts->debug_mode = 0; // debug mode is off by default
+    opts->debug_mode = false;
 }
 
 int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) {
-    // Check if the options pointer is null
     if (opts == NULL) {
         fprintf(stderr, "Error: Null pointer passed to parse_command_line_args.\n");
         return 1;
     }
-    // Iterate through each of the command line arguments
+
     for (int i = 1; i < argc; ++i) {
-        // Parse the input file
-        if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
-            strncpy(opts->infilename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
-            i++;
-            // Parse the output file
+        if (strcmp(argv[i], "-i") == 0)
+        {
+            if (i + 1 < argc)
+            {
+                strncpy(opts->infilename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
+                i++;
+            }
+            else {
+                fprintf(stderr, "Error: -i option requires an argument.\n");
+                return 1;
+            }
         }
-        else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
-            strncpy(opts->outfilename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
-            i++;
-            // Parse the dither method
+        else if (strcmp(argv[i], "-o") == 0) {
+            if (i + 1 < argc)
+            {
+                strncpy(opts->outfilename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
+                i++;
+            }
+            else {
+                fprintf(stderr, "Error: -o option requires an argument.\n");
+                return 1;
+            }
         }
-        else if (strcmp(argv[i], "-dm") == 0 && i + 1 < argc) {
-            opts->dither_method = atoi(argv[i + 1]);
-            i++;
-            // Parse the debug mode
+        else if (strcmp(argv[i], "-dm") == 0) {
+            if (i + 1 < argc)
+            {
+                opts->dither_method = atoi(argv[i + 1]);
+                i++;
+            }
+            else {
+                fprintf(stderr, "Error: -dm option requires an argument.\n");
+                return 1;
+            }
         }
 #ifdef DEBUG_BUILD
-        else if (strcmp(argv[i], "-debug") == 0 && i + 1 < argc) {
-            opts->debug_mode = 1;
-            strncpy(opts->debug_filename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
-            i++;
-            // Parse the gamma
+        else if (strcmp(argv[i], "-debug") == 0) {
+            if (i + 1 < argc)
+            {
+                opts->debug_mode = true;
+                strncpy(opts->debug_filename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
+                i++;
+            }
+            else {
+                fprintf(stderr, "Error: -debug option requires an argument.\n");
+                return 1;
+            }
         }
 #endif
-        else if (strcmp(argv[i], "-g") == 0 && i + 1 < argc) {
-            opts->gamma = (float)atof(argv[i + 1]);
-            i++;
-            // Parse the contrast
+        else if (strcmp(argv[i], "-g") == 0) {
+            if (i + 1 < argc)
+            {
+                opts->gamma = (float)atof(argv[i + 1]);
+                i++;
+            }
+            else {
+                fprintf(stderr, "Error: -g option requires an argument.\n");
+                return 1;
+            }
         }
-        else if (strcmp(argv[i], "-c") == 0 && i + 1 < argc) {
-            opts->contrast = (float)atof(argv[i + 1]);
-            i++;
-            // Parse the brightness
+        else if (strcmp(argv[i], "-c") == 0) {
+            if (i + 1 < argc)
+            {
+                opts->contrast = (float)atof(argv[i + 1]);
+                i++;
+            }
+            else {
+                fprintf(stderr, "Error: -c option requires an argument.\n");
+                return 1;
+            }
         }
-        else if (strcmp(argv[i], "-b") == 0 && i + 1 < argc) {
-            opts->brightness = (float)atof(argv[i + 1]);
-            i++;
-            // Print the help message
+        else if (strcmp(argv[i], "-b") == 0) {
+            if (i + 1 < argc)
+            {
+                opts->brightness = (float)atof(argv[i + 1]);
+                i++;
+            }
+            else {
+                fprintf(stderr, "Error: -b option requires an argument.\n");
+                return 1;
+            }
         }
         else if (strcmp(argv[i], "-h") == 0) {
             printf("Usage: r3g3b2 -i <input file> -o <output file> [-dm <method>] [-g <gamma>] [-c <contrast>] [-b <brightness>]\n");
@@ -633,14 +637,13 @@ int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) {
             printf("  -dm <method>              : Set dithering method (0: Floyd-Steinberg, 1: Jarvis, 2: Atkinson, 3: Bayer 16x16)\n");
 #ifdef DEBUG_BUILD
             printf("  -debug <debug_filename>   : Enable debug mode and specify debug file prefix\n");
-#endif            
+#endif
             printf("  -g <gamma>                : Set gamma value (default: 1.0)\n");
             printf("  -c <contrast>             : Set contrast value (default: 0.0)\n");
             printf("  -b <brightness>           : Set brightness value (default: 1.0)\n");
             printf("  -h                        : Display this help message\n");
             printf("Example: r3g3b2 -i tst.png -o tst.h -dm 0 -g 1.0 -c 0.0 -b 1.0\n");
             return 1;
-            // Report if invalid option is passed
         }
         else {
             fprintf(stderr, "Invalid option: %s\n", argv[i]);
@@ -651,17 +654,10 @@ int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) {
 }
 
 int main(int argc, char* argv[]) {
-    // Create a ProgramOptions struct
     ProgramOptions opts;
-
-    // Initialize the program options struct with default values
     init_program_options(&opts);
-
-    // Parse the command line arguments
     if (parse_command_line_args(argc, argv, &opts)) {
-        return 1; // Return error if there is an issue with the command line args
+        return 1;
     }
-
-    // Process the image using the parsed options
     return process_image(&opts);
 }
