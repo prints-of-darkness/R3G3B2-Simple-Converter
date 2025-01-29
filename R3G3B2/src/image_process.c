@@ -79,7 +79,8 @@ int process_image(ProgramOptions* opts)
 
     uint8_t gamma_lut[LUT_SIZE];
     uint8_t contrast_brightness_lut[LUT_SIZE];
-    initialize_luts(opts->gamma, opts->contrast, opts->brightness, gamma_lut, contrast_brightness_lut);
+    initialize_luts(opts->gamma, opts->contrast, opts->lightness, gamma_lut, contrast_brightness_lut);
+    
     process_image_with_luts(&image, gamma_lut, contrast_brightness_lut);
 
     if (write_debug_image("processed.bmp", &image, opts) != EXIT_SUCCESS) {
@@ -102,7 +103,7 @@ int process_image(ProgramOptions* opts)
 
     char array_name[MAX_FILENAME_LENGTH];
     trim_filename_copy(opts->outfilename, array_name, MAX_FILENAME_LENGTH);
-    if (write_image_data_to_file(opts->outfilename, array_name, &image) != EXIT_SUCCESS) {
+    if (write_image_data_to_file(opts->outfilename, array_name, &image, opts->header_output, opts->bin_output) != EXIT_SUCCESS) {
         free_image_memory(&image);
         return EXIT_FAILURE;
     }

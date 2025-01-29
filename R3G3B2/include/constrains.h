@@ -31,6 +31,8 @@ BEGIN_EXTERN_C
 
 #define BAYER_SIZE 16
 
+#define RGB332_FORMAT_ID 0x332
+
 END_EXTERN_C
 
 #endif

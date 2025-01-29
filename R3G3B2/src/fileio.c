@@ -119,7 +119,7 @@ static int write_c_footer(FILE* fp, const char* array_name)
     return EXIT_SUCCESS;
 }
 
-int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image)
+int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image, bool header_output, bool bin_output)
 {
     FILE* fp = NULL;
     int result = EXIT_FAILURE;
@@ -128,15 +128,49 @@ int write_image_data_to_file(const char* filename, const char* array_name, const
         return fileio_error("Null pointer passed to write_image_data_to_file.");
     }
 
-    fp = fopen(filename, "w");
-    if (!fp) {
-        return fileio_perror("Failed to open output file");
-    }
+    if (bin_output) {
+        fp = fopen(filename, "wb"); // Use "wb" for binary mode
+        if (!fp) {
+            return fileio_perror("Failed to open output file");
+        }
 
-    if (write_c_header(fp, array_name) != EXIT_SUCCESS)            goto cleanup;
-    if (write_image_data(fp, array_name, image) != EXIT_SUCCESS)   goto cleanup;
-    if (write_image_struct(fp, array_name, image) != EXIT_SUCCESS) goto cleanup;
-    if (write_c_footer(fp, array_name) != EXIT_SUCCESS)            goto cleanup;
+        // Write binary metadata header
+        ImageMetadata metadata;
+        metadata.width = image->width;
+        metadata.height = image->height;
+        metadata.format_id = RGB332_FORMAT_ID; // Use the defined format ID
+
+        if (fwrite(&metadata, sizeof(ImageMetadata), 1, fp) != 1) {
+            fileio_perror("Failed to write binary metadata");
+            goto cleanup;
+        };
+
+        // Write raw binary data
+        for (size_t y = 0; y < image->height; y++) {
+            for (size_t x = 0; x < image->width; x++) {
+                size_t idx = (y * image->width + x) * RGB_COMPONENTS;
+                uint8_t rgb332 = rgbToRgb332(image->data[idx], image->data[idx + 1], image->data[idx + 2]);
+                if (fwrite(&rgb332, 1, 1, fp) != 1) { // Write 1 byte at a time
+                    fileio_perror("Failed to write to file");
+                    goto cleanup;
+                };
+            }
+        }
+    }
+    else if (header_output) {
+        fp = fopen(filename, "w");
+        if (!fp) {
+            return fileio_perror("Failed to open output file");
+        }
+        // Write C header file
+        if (write_c_header(fp, array_name) != EXIT_SUCCESS)            goto cleanup;
+        if (write_image_data(fp, array_name, image) != EXIT_SUCCESS)   goto cleanup;
+        if (write_image_struct(fp, array_name, image) != EXIT_SUCCESS) goto cleanup;
+        if (write_c_footer(fp, array_name) != EXIT_SUCCESS)            goto cleanup;
+    }
+    else {
+        return fileio_error("Must select -b or -h output option");
+    }
 
     result = EXIT_SUCCESS;
 
@@ -146,3 +180,49 @@ cleanup:
 
     return result;
 }
+
+
+/********************************| READ BIN FILE |*************************************/
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <stdint.h>
+//
+//typedef struct {
+//    uint16_t width;
+//    uint16_t height;
+//    uint16_t format_id;
+//} ImageMetadata;
+//
+//
+//int main() {
+//
+//    FILE* fp = fopen("output.bin", "rb");
+//    if (!fp) {
+//        perror("failed to open file");
+//        return -1;
+//    }
+//    ImageMetadata meta;
+//    if (fread(&meta, sizeof(ImageMetadata), 1, fp) != 1) {
+//        perror("failed to read header");
+//        fclose(fp);
+//        return -1;
+//    }
+//
+//    printf("Width: %d\n", meta.width);
+//    printf("Height: %d\n", meta.height);
+//    printf("format_id: %x\n", meta.format_id);
+//
+//    uint8_t* imageData = malloc(meta.width * meta.height);
+//
+//    if (fread(imageData, 1, meta.width * meta.height, fp) != meta.width * meta.height) {
+//        perror("failed to read image data");
+//        free(imageData);
+//        fclose(fp);
+//        return -1;
+//    }
+//    //Do stuff with pixel data
+//    free(imageData);
+//    fclose(fp);
+//    return 0;
+//}
+/***********************************************************************************/
