@@ -15,70 +15,70 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="r3g3b2.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="color.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="debug.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dither.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fileio.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="luts.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="options.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="image_process.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="error.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <ClInclude Include="include\color.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\constrains.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\debug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\dither.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\error.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\fileio.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\image_process.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\image_typedef.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\luts.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\options.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stb_image_write.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="stb_image.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="stb_image_write.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="color.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="constrains.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="debug.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dither.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fileio.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="image_typedef.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="luts.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="options.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="image_process.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="error.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <ClCompile Include="src\color.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\debug.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dither.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\error.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fileio.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\image_process.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\luts.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\options.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\r3g3b2.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

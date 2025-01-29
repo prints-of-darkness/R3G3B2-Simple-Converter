@@ -105,6 +105,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(MSBuildProjectDirectory)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -119,6 +120,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(MSBuildProjectDirectory)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -128,29 +130,29 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="color.c" />
-    <ClCompile Include="debug.c" />
-    <ClCompile Include="dither.c" />
-    <ClCompile Include="error.c" />
-    <ClCompile Include="fileio.c" />
-    <ClCompile Include="luts.c" />
-    <ClCompile Include="options.c" />
-    <ClCompile Include="image_process.c" />
-    <ClCompile Include="r3g3b2.c" />
+    <ClInclude Include="include\color.h" />
+    <ClInclude Include="include\constrains.h" />
+    <ClInclude Include="include\debug.h" />
+    <ClInclude Include="include\dither.h" />
+    <ClInclude Include="include\error.h" />
+    <ClInclude Include="include\fileio.h" />
+    <ClInclude Include="include\image_process.h" />
+    <ClInclude Include="include\image_typedef.h" />
+    <ClInclude Include="include\luts.h" />
+    <ClInclude Include="include\options.h" />
+    <ClInclude Include="include\stb_image.h" />
+    <ClInclude Include="include\stb_image_write.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="color.h" />
-    <ClInclude Include="constrains.h" />
-    <ClInclude Include="debug.h" />
-    <ClInclude Include="dither.h" />
-    <ClInclude Include="error.h" />
-    <ClInclude Include="fileio.h" />
-    <ClInclude Include="image_typedef.h" />
-    <ClInclude Include="luts.h" />
-    <ClInclude Include="options.h" />
-    <ClInclude Include="image_process.h" />
-    <ClInclude Include="stb_image.h" />
-    <ClInclude Include="stb_image_write.h" />
+    <ClCompile Include="src\color.c" />
+    <ClCompile Include="src\debug.c" />
+    <ClCompile Include="src\dither.c" />
+    <ClCompile Include="src\error.c" />
+    <ClCompile Include="src\fileio.c" />
+    <ClCompile Include="src\image_process.c" />
+    <ClCompile Include="src\luts.c" />
+    <ClCompile Include="src\options.c" />
+    <ClCompile Include="src\r3g3b2.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
