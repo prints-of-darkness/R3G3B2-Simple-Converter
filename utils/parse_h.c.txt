@@ -1,0 +1,204 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+// Define RGB332_FORMAT_ID and Image_t struct, ensure they're accessible
+#define RGB332_FORMAT_ID 0x332
+
+typedef struct {
+    const unsigned char* data;
+    unsigned short width;
+    unsigned short height;
+    unsigned short format_id;
+} Image_t;
+
+// helper to convert hex to int
+int hex_char_to_int(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1; // invalid hex char
+}
+
+unsigned char hex_str_to_byte(const char* hex_str) {
+    int upper = hex_char_to_int(hex_str[0]);
+    int lower = hex_char_to_int(hex_str[1]);
+
+    if (upper == -1 || lower == -1) return 0; // Handle invalid hex
+    return (unsigned char)((upper << 4) | lower);
+}
+
+int parse_header_image(const char* filename, unsigned char** image_data, int* width, int* height, int* format_id) {
+    FILE* file = fopen(filename, "r");
+    if (!file) {
+        perror("Error opening header file");
+        return 1;
+    }
+
+    char line[1024];
+    long data_start = -1;
+    int found_format = 0;
+    int found_image_data = 0;
+
+    // First pass, find dimensions, format, and beginning of data
+    while (fgets(line, sizeof(line), file) != NULL) {
+
+        char* width_str = strstr(line, ".width = ");
+        char* height_str = strstr(line, ".height = ");
+        char* format_str = strstr(line, ".format_id = ");
+        char* data_start_str = strstr(line, "static const uint8_t ");
+        if (data_start_str && !strstr(line, "static const Image_t")) {
+            data_start_str = strstr(line, "{");
+            if (!data_start_str) {
+                continue;
+            }
+            data_start = ftell(file) - strlen(line) + (data_start_str - line) + 1;
+            found_image_data = 1;
+        }
+
+        if (width_str) {
+            *width = atoi(width_str + strlen(".width = "));
+        }
+        if (height_str) {
+            *height = atoi(height_str + strlen(".height = "));
+        }
+        if (format_str) {
+            char* format_value = format_str + strlen(".format_id = ");
+            if (strstr(format_value, "RGB332_FORMAT_ID")) {
+                *format_id = RGB332_FORMAT_ID;
+            }
+            else {
+                *format_id = strtol(format_value, NULL, 0);
+            }
+            found_format = 1;
+        }
+    }
+
+    if (*width <= 0 || *height <= 0 || !found_format || !found_image_data) {
+        fprintf(stderr, "Error: Invalid image info, or missing image data\n");
+        fclose(file);
+        return 1;
+    }
+
+    // Go to begining of data
+    fseek(file, data_start, SEEK_SET);
+
+    int image_size = (*width) * (*height);
+    *image_data = (unsigned char*)malloc(image_size);
+
+    if (!*image_data) {
+        perror("Error allocating image buffer");
+        fclose(file);
+        return 1;
+    }
+
+    // Read and parse the hex bytes
+    int i = 0;
+    char buffer[3];
+    buffer[2] = '\0';
+    char c = 0;
+    int buffer_index = 0;
+    while (i < image_size && (c = fgetc(file)) != EOF) {
+        if (c == '0' && fgetc(file) == 'x') {
+            buffer_index = 0;
+            while (buffer_index < 2 && (c = fgetc(file)) != EOF)
+            {
+                if (hex_char_to_int(c) != -1) {
+                    buffer[buffer_index++] = c;
+                }
+                else {
+                    if (buffer_index == 0) {
+                        break; // invalid hex start, ignore 0x
+                    }
+                    break;
+                }
+            }
+            if (buffer_index == 2) {
+                (*image_data)[i++] = hex_str_to_byte(buffer);
+            }
+        }
+    }
+
+    if (i != image_size) {
+        fprintf(stderr, "Error: Expected %d image bytes, got %d\n", image_size, i);
+        free(*image_data);
+        fclose(file);
+        return 1;
+    }
+
+    fclose(file);
+    return 0;
+}
+
+int rgb332_to_rgba(unsigned char* rgb332_data, int width, int height, unsigned char** rgba_data) {
+    int image_size = width * height;
+    *rgba_data = (unsigned char*)malloc(image_size * 4); // 4 bytes per pixel (RGBA)
+    if (!*rgba_data) {
+        perror("Error allocating RGBA buffer");
+        return 1;
+    }
+
+    for (int i = 0; i < image_size; ++i) {
+        unsigned char pixel = rgb332_data[i];
+        unsigned char r = ((pixel >> 5) & 0x7) * 255 / 7;
+        unsigned char g = ((pixel >> 2) & 0x7) * 255 / 7;
+        unsigned char b = (pixel & 0x3) * 255 / 3;
+
+        (*rgba_data)[i * 4 + 0] = r; // R
+        (*rgba_data)[i * 4 + 1] = g; // G
+        (*rgba_data)[i * 4 + 2] = b; // B
+        (*rgba_data)[i * 4 + 3] = 255; // A (fully opaque)
+    }
+    return 0;
+}
+
+
+int main(int argc, char* argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <input_header_file> <output_png_file>\n", argv[0]);
+        return 1;
+    }
+
+    const char* input_file = argv[1];
+    const char* output_file = argv[2];
+
+    unsigned char* image_data = NULL;
+    int width = 0, height = 0, format_id = 0;
+
+    if (parse_header_image(input_file, &image_data, &width, &height, &format_id) != 0) {
+        return 1;
+    }
+
+    unsigned char* rgba_data = NULL;
+
+    if (format_id == RGB332_FORMAT_ID) {
+        if (rgb332_to_rgba(image_data, width, height, &rgba_data) != 0) {
+            free(image_data);
+            return 1;
+        }
+    }
+    else {
+        fprintf(stderr, "Error: Unsupported format ID %d\n", format_id);
+        free(image_data);
+        return 1;
+    }
+
+
+    int success = stbi_write_png(output_file, width, height, 4, rgba_data, width * 4);
+
+    if (!success) {
+        fprintf(stderr, "Error writing PNG file.\n");
+    }
+    else {
+        printf("PNG image saved to: %s\n", output_file);
+    }
+
+
+    free(image_data);
+    free(rgba_data);
+
+    return success ? 0 : 1;
+}
