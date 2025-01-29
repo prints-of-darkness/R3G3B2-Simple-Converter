@@ -1,4 +1,10 @@
-// image_process.h
+/*********************************************************
+ *                                                       *
+ * MJM + AI 2025                                         *
+ * This code is in the public domain.                    *
+ * http://creativecommons.org/publicdomain/zero/1.0/     *
+ *                                                       *
+ *********************************************************/
 
 #ifndef IMAGE_PROCESS_H
 #define IMAGE_PROCESS_H

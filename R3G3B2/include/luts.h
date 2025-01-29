@@ -1,4 +1,10 @@
-// luts.h
+/*********************************************************
+ *                                                       *
+ * MJM + AI 2025                                         *
+ * This code is in the public domain.                    *
+ * http://creativecommons.org/publicdomain/zero/1.0/     *
+ *                                                       *
+ *********************************************************/
 
 #ifndef LUTS_H
 #define LUTS_H

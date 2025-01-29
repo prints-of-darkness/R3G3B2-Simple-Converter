@@ -1,10 +1,10 @@
-/*
-
-    RGB888 to RGB332 converter - public domain
-    MJM + AI 2025
-    no warranty implied; use at your own risk
-
-*/
+/*********************************************************
+ *                                                       *
+ * RGB888 to RGB332 converter - MJM + AI 2025            *
+ * This code is in the public domain.                    *
+ * http://creativecommons.org/publicdomain/zero/1.0/     *
+ *                                                       *
+ *********************************************************/
 
 #include "options.h"
 #include "fileio.h"
