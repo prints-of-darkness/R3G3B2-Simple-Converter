@@ -1,7 +1,8 @@
 /*
 
-    RGB888 to RGB332 converter
+    RGB888 to RGB332 converter - public domain
     MJM + AI 2025
+    no warranty implied; use at your own risk
 
 */
 
