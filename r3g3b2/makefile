@@ -18,7 +18,7 @@ all: $(TARGET)
 
 # Link the object files to create the executable
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ -lm
 
 # Compile C source files to object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
