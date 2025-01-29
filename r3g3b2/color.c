@@ -1,4 +1,3 @@
-
 #include <stdint.h>
 
 #include "constrains.h"
@@ -285,15 +284,6 @@ const RGBColor r3g3b2Palette[R3G3B2_COLOR_COUNT] = {
 uint8_t reduceBits(uint8_t value, int max_value)
 {
     return (uint8_t)(value * max_value / 256.0);
-}
-
-// Function to calculate Euclidean distance
-float colorDistance(const RGBColor* color1, const RGBColor* color2) 
-{
-    float dr = (float)(color2->r - color1->r);
-    float dg = (float)(color2->g - color1->g);
-    float db = (float)(color2->b - color1->b);
-    return sqrtf(dr * dr + dg * dg + db * db);
 }
 
 // Function to map a single RGB color to its closest R3G3B2 color, using the LUT

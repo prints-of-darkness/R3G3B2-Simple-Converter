@@ -1,11 +1,11 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 #include "options.h"
+#include "error.h"
 
-void init_program_options(ProgramOptions* opts) 
+void init_program_options(ProgramOptions* opts)
 {
     if (!opts) return;
     memset(opts, 0, sizeof(ProgramOptions));
@@ -17,91 +17,78 @@ void init_program_options(ProgramOptions* opts)
     opts->debug_filename[0] = '\0';
 }
 
-int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts) 
+int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts)
 {
-    if (opts == NULL) {
-        fprintf(stderr, "Error: Null pointer passed to parse_command_line_args.\n");
-        return 1;
+    if (!opts) {
+        return fileio_error("Null pointer passed to parse_command_line_args.");
     }
 
     for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "-i") == 0)
-        {
-            if (i + 1 < argc)
-            {
+        if (strcmp(argv[i], "-i") == 0) {
+            if (i + 1 < argc) {
                 strncpy(opts->infilename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
+                opts->infilename[MAX_FILENAME_LENGTH - 1] = '\0';
                 i++;
             }
             else {
-                fprintf(stderr, "Error: -i option requires an argument.\n");
-                return 1;
+                return fileio_error("-i option requires an argument.");
             }
         }
         else if (strcmp(argv[i], "-o") == 0) {
-            if (i + 1 < argc)
-            {
+            if (i + 1 < argc) {
                 strncpy(opts->outfilename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
+                opts->outfilename[MAX_FILENAME_LENGTH - 1] = '\0';
                 i++;
             }
             else {
-                fprintf(stderr, "Error: -o option requires an argument.\n");
-                return 1;
+                return fileio_error("-o option requires an argument.");
             }
         }
         else if (strcmp(argv[i], "-dm") == 0) {
-            if (i + 1 < argc)
-            {
+            if (i + 1 < argc) {
                 opts->dither_method = atoi(argv[i + 1]);
                 i++;
             }
             else {
-                fprintf(stderr, "Error: -dm option requires an argument.\n");
-                return 1;
+                return fileio_error("-dm option requires an argument.");
             }
         }
         else if (strcmp(argv[i], "-debug") == 0) {
-            if (i + 1 < argc)
-            {
+            if (i + 1 < argc) {
                 opts->debug_mode = true;
                 strncpy(opts->debug_filename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
+                opts->debug_filename[MAX_FILENAME_LENGTH - 1] = '\0';
                 i++;
             }
             else {
-                fprintf(stderr, "Error: -debug option requires an argument.\n");
-                return 1;
+                return fileio_error("-debug option requires an argument.");
             }
         }
         else if (strcmp(argv[i], "-g") == 0) {
-            if (i + 1 < argc)
-            {
+            if (i + 1 < argc) {
                 opts->gamma = (float)atof(argv[i + 1]);
                 i++;
             }
             else {
-                fprintf(stderr, "Error: -g option requires an argument.\n");
-                return 1;
+                return fileio_error("-g option requires an argument.");
             }
         }
         else if (strcmp(argv[i], "-c") == 0) {
-            if (i + 1 < argc)
-            {
+            if (i + 1 < argc) {
                 opts->contrast = (float)atof(argv[i + 1]);
                 i++;
             }
             else {
-                fprintf(stderr, "Error: -c option requires an argument.\n");
-                return 1;
+                return fileio_error("-c option requires an argument.");
             }
         }
         else if (strcmp(argv[i], "-b") == 0) {
-            if (i + 1 < argc)
-            {
+            if (i + 1 < argc) {
                 opts->brightness = (float)atof(argv[i + 1]);
                 i++;
             }
             else {
-                fprintf(stderr, "Error: -b option requires an argument.\n");
-                return 1;
+                return fileio_error("-b option requires an argument.");
             }
         }
         else if (strcmp(argv[i], "-h") == 0) {
@@ -115,13 +102,12 @@ int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts)
             printf("  -b <brightness>           : Set brightness value (default: 1.0)\n");
             printf("  -h                        : Display this help message\n");
             printf("Example: r3g3b2 -i tst.png -o tst.h -dm 0 -g 1.0 -c 0.0 -b 1.0\n");
-            return 1;
+            return EXIT_FAILURE;
         }
         else {
             fprintf(stderr, "Invalid option: %s\n", argv[i]);
-            return 1;
+            return EXIT_FAILURE;
         }
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
-

@@ -1,4 +1,3 @@
-
 // options.h
 
 #ifndef OPTIONS_H

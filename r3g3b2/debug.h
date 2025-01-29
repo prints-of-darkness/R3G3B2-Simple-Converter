@@ -1,4 +1,3 @@
-
 // debug.h
 
 #ifndef DEBUG_H
@@ -17,7 +16,7 @@ BEGIN_EXTERN_C
 #include "image_typedef.h"
 #include "options.h"
 
-int write_debug_image(const char* file_ext, ImageData* image, ProgramOptions* opts);
+int write_debug_image(const char* file_ext, const ImageData* image, const ProgramOptions* opts);
 
 END_EXTERN_C
 

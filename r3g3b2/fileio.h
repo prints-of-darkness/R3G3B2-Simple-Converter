@@ -20,21 +20,8 @@ BEGIN_EXTERN_C
 #include "image_typedef.h"
 
 void free_image_memory(ImageData* image);
-
 int load_image(const char* filename, ImageData* image);
-
-char* trim_filename_copy(const char* filename, char* dest, size_t dest_size);
-
 int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image);
-
-int write_c_header(FILE* fp, const char* array_name);
-
-int write_image_struct(FILE* fp, const char* array_name, const ImageData* image);
-
-int write_image_data(FILE* fp, const char* array_name, const ImageData* image);
-int write_c_footer(FILE* fp, const char* array_name);
-int process_image(ProgramOptions* opts);
-
 
 END_EXTERN_C
 

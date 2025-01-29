@@ -1,4 +1,3 @@
-
 // image_typedef.h
 
 #ifndef IMAGE_TYPEDEF_H
@@ -15,12 +14,6 @@
 BEGIN_EXTERN_C
 
 #include <stdint.h>
-
-typedef struct {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-} RGBColor;
 
 typedef struct {
     uint8_t* data;

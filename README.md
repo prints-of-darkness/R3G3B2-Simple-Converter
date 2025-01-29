@@ -1,48 +1,46 @@
+
 # r3g3b2 Image Converter
 
 ## Overview
 
-`r3g3b2.c` is a command-line utility designed to convert RGB images into 8-bit RGB332 format. This format is specifically needed for certain TFT graphics controllers, such as the LT7683. The program also includes several dithering options to improve the visual quality of the reduced color space. Additionally, it offers gamma correction, contrast, and brightness adjustments.
+`r3g3b2` is a command-line utility designed to convert RGB images into an 8-bit RGB332 format. This specific format is commonly used with TFT graphics controllers, such as the LT7683. In addition to color space conversion, the program offers several dithering options to improve the visual quality of the reduced color palette. Furthermore, it provides adjustments for gamma correction, contrast, and brightness.
 
 ## Features
 
--   **RGB to RGB332 Conversion:** Converts standard 24-bit RGB images into 8-bit RGB332 format.
--   **Dithering:** Supports four dithering methods to minimize color banding:
+-   **RGB to RGB332 Conversion:** Converts standard 24-bit RGB images to an 8-bit RGB332 format.
+-   **Dithering Algorithms:** Includes four dithering methods to mitigate color banding artifacts:
     -   Floyd-Steinberg
     -   Jarvis
     -   Atkinson
     -   Bayer 16x16
--   **Gamma Correction:** Allows for gamma adjustment.
--   **Contrast and Brightness Control:** Enables adjustment of contrast and brightness levels.
--   **Image Loading:** Uses the `stb_image` library to load various image formats (e.g., PNG, JPG, BMP).
--   **Output to C Header File:** Writes the converted image data as a C array within a header file.
--   **Optional Debug Output:**  (when compiled with `-DDEBUG_BUILD`) Can write intermediate and final processed images to BMP for visual debugging.
--   **Command-Line Interface:** Provides options to set the input, output file, dithering method, gamma, contrast, and brightness values.
+-   **Gamma Correction:** Allows for adjusting the gamma value to fine-tune image brightness and contrast.
+-   **Contrast and Brightness Control:** Provides independent controls for adjusting image contrast and brightness.
+-   **Broad Image Format Support:** Leverages the `stb_image` library for loading various common image formats (e.g., PNG, JPG, BMP).
+-   **C Header Output:** Generates a C-compatible header file containing the converted image data as a static array, ideal for embedded systems.
+-   **Debug Output (Optional):** The program can generate intermediate and final processed images in BMP format for debugging purposes by using the `-debug` flag.
+-   **Command-Line Interface:** The program's behavior is fully controlled through command-line arguments, allowing for flexibility and batch processing.
 
 ## Compilation
 
-To compile the code, use a C compiler that supports C99 or later:
+To compile the code, you will need a C compiler that supports the C99 standard or later. Use the following command:
 
 	gcc r3g3b2.c -o r3g3b2 -lm
     
-To enable debug mode, add the DEBUG_BUILD define
-
-	gcc r3g3b2.c -o r3g3b2 -lm -DDEBUG_BUILD
-    
-This will generate an executable named r3g3b2. The -lm flag links the math library, which is required for the gamma correction.
+The -lm flag is essential, as it links the math library, which is required for gamma correction. This will create an executable named r3g3b2.
 
 ## Usage
 
-	r3g3b2 -i <input file> -o <output file> [-dm <method>] [-g <gamma>] [-c <contrast>] [-b <brightness>] [-h]
-    
+The program is executed from the command line using the following structure:
+
+	r3g3b2 -i <input file> -o <output file> [-dm <method>] [-g <gamma>] [-c <contrast>] [-b <brightness>] [-debug <debug_filename>] [-h]
 
 ### Options
 
--   -i <input file>: Specifies the input image file path.
+-   -i <input file>: Specifies the path to the input image file.
     
--   -o <output file>: Specifies the output header file path.
+-   -o <output file>: Specifies the path to the output C header file.
     
--   -dm <method>: Sets the dithering method:
+-   -dm <method>: Selects the dithering method:
     
     -   0: Floyd-Steinberg
         
@@ -52,7 +50,7 @@ This will generate an executable named r3g3b2. The -lm flag links the math libra
         
     -   3: Bayer 16x16
         
-    -   -1: No Dithering (default)
+    -   -1: No dithering (default)
         
 -   -g <gamma>: Sets the gamma correction value (default: 1.0).
     
@@ -60,9 +58,9 @@ This will generate an executable named r3g3b2. The -lm flag links the math libra
     
 -   -b <brightness>: Sets the brightness adjustment value (default: 1.0).
     
--   -h: Displays the help message.
+-   -debug <debug_filename>: Enables debug mode, using <debug_filename> as the prefix for debug output BMP files.
     
--   -debug <debug_filename>: (when compiled with -DDEBUG_BUILD) Enables debug mode and specifies debug file prefix.
+-   -h: Displays the help message and exits.
     
 
 ### Examples
@@ -70,63 +68,62 @@ This will generate an executable named r3g3b2. The -lm flag links the math libra
 1.  **Convert input.png to output.h using Floyd-Steinberg dithering:**
     
 		./r3g3b2 -i input.png -o output.h -dm 0
-
     
 -   **Convert image.jpg to image_out.h with a gamma of 2.2 and increased contrast:**
     
 		./r3g3b2 -i image.jpg -o image_out.h -g 2.2 -c 50
-          
-2.  **Convert my_pic.bmp to my_pic.h with no dithering:**
+	
+-   **Convert my_pic.bmp to my_pic.h without any dithering:**
     
 		./r3g3b2 -i my_pic.bmp -o my_pic.h
-
-1.  **Convert my_pic.bmp to my_pic.h with debug mode enabled:**
+          
+-   **Convert my_pic.bmp to my_pic.h with debug mode enabled:**
     
-
 		./r3g3b2 -i my_pic.bmp -o my_pic.h -debug debug_out
-
-This example will also output a bmp image, named debug_out_processed.bmp, which shows what the image looks like after the gamma, contrast, and brightness LUT has been applied, and a bmp image, named debug_out_final.bmp, which shows what the image looks like after dithering has been applied (if selected)
-
+    
+    This command generates a debug BMP image named debug_out_processed.bmp (showing the image after gamma, contrast, and brightness adjustments) and another named debug_out_final.bmp (showing the final result after dithering, if selected).
+    
 ## Code Structure
 
-The code is organized into the following sections:
+The code is organized for readability and maintainability, featuring the following modules:
 
--   **Data Structures:** Defines ProgramOptions and ImageData structs.
+-   **Data Structures:** Defines the ProgramOptions struct to manage command-line arguments and the ImageData struct to store image data.
     
--   **Function Prototypes:** Declares the functions used in the program.
+-   **Function Prototypes:** Declares all functions used in the program.
     
--   **Helper Functions:** Provides utility functions like error handling.
+-   **Helper Functions:** Includes error handling functions and filename trimming.
     
--   **LUT and Image Processing Functions:** Implements look-up tables, image processing, and color conversions.
+-   **LUT and Image Processing:** Provides functions for generating and applying look-up tables for gamma correction, contrast, and brightness adjustments. Also contains functions for color quantization.
     
--   **Dithering Algorithm Functions:** Implements various dithering techniques.
+-   **Dithering Algorithms:** Implements the various dithering techniques.
     
--   **File IO Functions:** Implements image loading, C header output, and memory management.
+-   **File IO:** Includes functions for image loading using stb_image, writing the converted image as a C header file, and memory management.
     
--   **Command Line Processing:** Parses arguments and initializes the program.
+-   **Command Line Processing:** Parses command-line arguments and initializes the ProgramOptions struct.
     
--   **Main Function:** Entry point for the program.
+-   **Main Function:** The entry point of the program, handles the execution flow.
     
 
 ## Notes
 
--   The program utilizes the stb_image and stb_image_write (for debug) libraries for image I/O.
+-   The program uses the stb_image and stb_image_write single-header libraries for image I/O.
     
--   Memory allocation errors are handled with a custom mem_alloc_failed function.
+-   Error handling is done through custom functions like fileio_error and fileio_perror.
     
--   The output C header file includes the definitions needed to use the generated image array on an embedded device.
+-   The generated C header file includes the necessary definitions for integrating the generated image array with embedded systems, including image_types.h, which has been included at the top of the generated header for convenience.
     
--   Remember to add the image_types.h to the project that the output header file is being imported to, this has been generated at the top of the header file for convenience.
+-   It's important to remember to add image_types.h to your embedded project for the output file to compile and run correctly.
+    
 
 ## Dependencies
 
--   stb_image.h (included) - single header library for image loading.
+-   stb_image.h (included)
     
--   stb_image_write.h (included) - single header library for debug image writing.
+-   stb_image_write.h (included)
     
--   Math library (linked with -lm).
+-   Math library (linked with -lm)
     
 
 ## Attribution
 
-This code was created as a joint effort by **MJM** and **AI** in 2025.
+This code was a collaborative effort by **MJM** and **AI** in 2025.

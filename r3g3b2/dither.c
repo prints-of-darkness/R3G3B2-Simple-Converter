@@ -1,4 +1,3 @@
-
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +5,7 @@
 
 #include "constrains.h"
 #include "dither.h"
+#include "error.h"
 
 const uint8_t BAYER_MATRIX_16X16[BAYER_SIZE][BAYER_SIZE] = {
     {0,  128, 32, 160,  8, 136, 40, 168,  2, 130, 34, 162, 10, 138, 42, 170},
@@ -60,7 +60,7 @@ void atkinsonDither(ImageData* image)
 void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matrix_size)
 {
     if (!image || !image->data) {
-        fprintf(stderr, "Error: Null pointer passed to genericDither.\n");
+        fileio_error("Null pointer passed to genericDither.");
         return;
     }
 
@@ -78,7 +78,6 @@ void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matr
             uint8_t newG = oldG;
             uint8_t newB = oldB;
 
-            //quantize_pixel(&newR, &newG, &newB);
             quantize_pixel_with_map_reduced(&newR, &newG, &newB);
 
             image->data[idx] = newR;
@@ -104,11 +103,10 @@ void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matr
     }
 }
 
-
-void bayer16x16Dither(ImageData* image) 
+void bayer16x16Dither(ImageData* image)
 {
     if (!image || !image->data) {
-        fprintf(stderr, "Error: Null pointer passed to bayer16x16Dither.\n");
+        fileio_error("Null pointer passed to bayer16x16Dither.");
         return;
     }
 
@@ -134,7 +132,6 @@ void bayer16x16Dither(ImageData* image)
             g = (g > MAX_COLOUR_VALUE) ? MAX_COLOUR_VALUE : (g < 0) ? 0 : g;
             b = (b > MAX_COLOUR_VALUE) ? MAX_COLOUR_VALUE : (b < 0) ? 0 : b;
 
-            //quantize_pixel((uint8_t*)&r, (uint8_t*)&g, (uint8_t*)&b);
             quantize_pixel_with_map_reduced((uint8_t*)&r, (uint8_t*)&g, (uint8_t*)&b);
 
             image->data[idx] = r;

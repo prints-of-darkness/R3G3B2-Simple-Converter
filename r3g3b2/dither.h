@@ -1,4 +1,3 @@
-
 // dither.h
 
 #ifndef DITHER_H

@@ -1,4 +1,3 @@
-
 /*
 
     RGB888 to RGB332 converter
@@ -8,6 +7,7 @@
 
 #include "options.h"
 #include "fileio.h"
+#include "image_process.h"
 
 int main(int argc, char* argv[]) {
     ProgramOptions opts;
