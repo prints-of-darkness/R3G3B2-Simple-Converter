@@ -93,9 +93,7 @@ int process_image(ProgramOptions* opts)
     case 1:  dither_function = jarvisDither;         break;
     case 2:  dither_function = atkinsonDither;       break;
     case 3:  dither_function = bayer16x16Dither;     break;
-    default:
-        // Leave dither_function as NULL if an invalid method is selected
-        break;
+    default: dither_function = noDither;             break; //setting to null breaks visual debugging
     }
 
     if (dither_function) {

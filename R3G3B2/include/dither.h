@@ -33,6 +33,8 @@ void jarvisDither(ImageData* image);
 void atkinsonDither(ImageData* image);
 void bayer16x16Dither(ImageData* image);
 
+void noDither(ImageData* image);
+
 END_EXTERN_C
 
 #endif

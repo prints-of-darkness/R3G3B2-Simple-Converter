@@ -147,3 +147,30 @@ void bayer16x16Dither(ImageData* image)
         }
     }
 }
+
+void noDither(ImageData* image)
+{
+    if (!image || !image->data) {
+        fileio_error("Null pointer passed to noDither.");
+        return;
+    }
+
+    const int width = image->width;
+    const int height = image->height;
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int idx = (y * width + x) * RGB_COMPONENTS;
+
+            int r = image->data[idx];
+            int g = image->data[idx + 1];
+            int b = image->data[idx + 2];
+
+            quantize_pixel_with_map_reduced((uint8_t*)&r, (uint8_t*)&g, (uint8_t*)&b);
+
+            image->data[idx] = r;
+            image->data[idx + 1] = g;
+            image->data[idx + 2] = b;
+        }
+    }
+}
