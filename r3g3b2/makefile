@@ -11,7 +11,7 @@ SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
 
 # Executable name
-TARGET = r3g3b2
+TARGET = R3G3B2
 
 # Default target
 all: $(TARGET)
