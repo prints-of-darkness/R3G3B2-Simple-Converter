@@ -19,6 +19,45 @@
 #include "image_process.h"
 #include "error.h"
 
+static char* trim_filename_copy(const char* filename, char* dest, size_t dest_size)
+{
+    if (!filename || !dest || dest_size == 0) {
+        return NULL;
+    }
+    dest[0] = '\0';
+
+    if (filename[0] == '\0') {
+        return dest;
+    }
+
+    const char* dot = strrchr(filename, '.');
+    size_t length;
+
+    if (!dot || dot == filename) {
+        length = strlen(filename);
+        if (length >= dest_size) {
+            strncpy(dest, filename, dest_size - 1);
+            dest[dest_size - 1] = '\0';
+        }
+        else {
+            strcpy(dest, filename);
+        }
+        return dest;
+    }
+    else {
+        length = dot - filename;
+        if (length >= dest_size) {
+            strncpy(dest, filename, dest_size - 1);
+            dest[dest_size - 1] = '\0';
+        }
+        else {
+            strncpy(dest, filename, length);
+            dest[length] = '\0';
+        }
+        return dest;
+    }
+}
+
 int process_image(ProgramOptions* opts)
 {
     if (!opts) {
@@ -77,43 +116,4 @@ int process_image(ProgramOptions* opts)
 
     free_image_memory(&image);
     return EXIT_SUCCESS;
-}
-
-char* trim_filename_copy(const char* filename, char* dest, size_t dest_size)
-{
-    if (!filename || !dest || dest_size == 0) {
-        return NULL;
-    }
-    dest[0] = '\0';
-
-    if (filename[0] == '\0') {
-        return dest;
-    }
-
-    const char* dot = strrchr(filename, '.');
-    size_t length;
-
-    if (!dot || dot == filename) {
-        length = strlen(filename);
-        if (length >= dest_size) {
-            strncpy(dest, filename, dest_size - 1);
-            dest[dest_size - 1] = '\0';
-        }
-        else {
-            strcpy(dest, filename);
-        }
-        return dest;
-    }
-    else {
-        length = dot - filename;
-        if (length >= dest_size) {
-            strncpy(dest, filename, dest_size - 1);
-            dest[dest_size - 1] = '\0';
-        }
-        else {
-            strncpy(dest, filename, length);
-            dest[length] = '\0';
-        }
-        return dest;
-    }
 }

@@ -14,7 +14,7 @@
 #include "dither.h"
 #include "error.h"
 
-const uint8_t BAYER_MATRIX_16X16[BAYER_SIZE][BAYER_SIZE] = {
+static const uint8_t BAYER_MATRIX_16X16[BAYER_SIZE][BAYER_SIZE] = {
     {0,  128, 32, 160,  8, 136, 40, 168,  2, 130, 34, 162, 10, 138, 42, 170},
     {192, 64, 224, 96, 200, 72, 232, 104, 194, 66, 226, 98, 202, 74, 234, 106},
     {48, 176, 16, 144, 56, 184, 24, 152, 50, 178, 18, 146, 58, 186, 26, 154},
@@ -33,38 +33,7 @@ const uint8_t BAYER_MATRIX_16X16[BAYER_SIZE][BAYER_SIZE] = {
     {255, 127, 223, 95, 247, 119, 215, 87, 253, 125, 221, 93, 245, 117, 213, 85}
 };
 
-void floydSteinbergDither(ImageData* image)
-{
-    const ErrorDiffusionEntry matrix[] = {
-        { 1, 0, 7.0f / 16.0f },
-        {-1, 1, 3.0f / 16.0f },
-        { 0, 1, 5.0f / 16.0f },
-        { 1, 1, 1.0f / 16.0f }
-    };
-    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
-}
-
-void jarvisDither(ImageData* image)
-{
-    const ErrorDiffusionEntry matrix[] = {
-    { 1, 0, 7.0f / 48.0f }, { 2, 0, 5.0f / 48.0f },
-    {-2, 1, 3.0f / 48.0f }, {-1, 1, 5.0f / 48.0f }, { 0, 1, 7.0f / 48.0f }, { 1, 1, 5.0f / 48.0f }, { 2, 1, 3.0f / 48.0f },
-    {-2, 2, 1.0f / 48.0f }, {-1, 2, 3.0f / 48.0f }, { 0, 2, 5.0f / 48.0f }, { 1, 2, 3.0f / 48.0f }, { 2, 2, 1.0f / 48.0f }
-    };
-    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
-}
-
-void atkinsonDither(ImageData* image)
-{
-    const ErrorDiffusionEntry matrix[] = {
-    { 1, 0, 1.0f / 8.0f }, { 2, 0, 1.0f / 8.0f },
-    {-1, 1, 1.0f / 8.0f }, { 0, 1, 1.0f / 8.0f }, { 1, 1, 1.0f / 8.0f },
-    { 0, 2, 1.0f / 8.0f }
-    };
-    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
-}
-
-void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matrix_size)
+static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matrix_size)
 {
     if (!image || !image->data) {
         fileio_error("Null pointer passed to genericDither.");
@@ -108,6 +77,37 @@ void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matr
             }
         }
     }
+}
+
+void floydSteinbergDither(ImageData* image)
+{
+    const ErrorDiffusionEntry matrix[] = {
+        { 1, 0, 7.0f / 16.0f },
+        {-1, 1, 3.0f / 16.0f },
+        { 0, 1, 5.0f / 16.0f },
+        { 1, 1, 1.0f / 16.0f }
+    };
+    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
+}
+
+void jarvisDither(ImageData* image)
+{
+    const ErrorDiffusionEntry matrix[] = {
+    { 1, 0, 7.0f / 48.0f }, { 2, 0, 5.0f / 48.0f },
+    {-2, 1, 3.0f / 48.0f }, {-1, 1, 5.0f / 48.0f }, { 0, 1, 7.0f / 48.0f }, { 1, 1, 5.0f / 48.0f }, { 2, 1, 3.0f / 48.0f },
+    {-2, 2, 1.0f / 48.0f }, {-1, 2, 3.0f / 48.0f }, { 0, 2, 5.0f / 48.0f }, { 1, 2, 3.0f / 48.0f }, { 2, 2, 1.0f / 48.0f }
+    };
+    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
+}
+
+void atkinsonDither(ImageData* image)
+{
+    const ErrorDiffusionEntry matrix[] = {
+    { 1, 0, 1.0f / 8.0f }, { 2, 0, 1.0f / 8.0f },
+    {-1, 1, 1.0f / 8.0f }, { 0, 1, 1.0f / 8.0f }, { 1, 1, 1.0f / 8.0f },
+    { 0, 2, 1.0f / 8.0f }
+    };
+    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
 }
 
 void bayer16x16Dither(ImageData* image)

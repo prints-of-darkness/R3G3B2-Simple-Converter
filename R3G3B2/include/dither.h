@@ -31,7 +31,6 @@ typedef struct {
 void floydSteinbergDither(ImageData* image);
 void jarvisDither(ImageData* image);
 void atkinsonDither(ImageData* image);
-void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matrix_size);
 void bayer16x16Dither(ImageData* image);
 
 END_EXTERN_C

@@ -25,7 +25,6 @@ BEGIN_EXTERN_C
 typedef void (*DitherFunc)(ImageData* image);
 
 int process_image(ProgramOptions* opts);
-char* trim_filename_copy(const char* filename, char* dest, size_t dest_size);
 
 END_EXTERN_C
 
