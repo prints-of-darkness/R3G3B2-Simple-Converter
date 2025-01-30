@@ -30,28 +30,41 @@ static char* trim_filename_copy(const char* filename, char* dest, size_t dest_si
         return dest;
     }
 
-    const char* dot = strrchr(filename, '.');
+    const char* last_slash = strrchr(filename, '/');
+    const char* last_backslash = strrchr(filename, '\\');
+
+    const char* filename_start = filename; // Default to the beginning
+
+    if (last_slash > last_backslash) {
+        filename_start = last_slash ? last_slash + 1 : filename;
+    }
+    else if (last_backslash > last_slash)
+    {
+        filename_start = last_backslash ? last_backslash + 1 : filename;
+    }
+
+    const char* dot = strrchr(filename_start, '.');
     size_t length;
 
-    if (!dot || dot == filename) {
-        length = strlen(filename);
+    if (!dot || dot == filename_start) {
+        length = strlen(filename_start);
         if (length >= dest_size) {
-            strncpy(dest, filename, dest_size - 1);
+            strncpy(dest, filename_start, dest_size - 1);
             dest[dest_size - 1] = '\0';
         }
         else {
-            strcpy(dest, filename);
+            strcpy(dest, filename_start);
         }
         return dest;
     }
     else {
-        length = dot - filename;
+        length = dot - filename_start;
         if (length >= dest_size) {
-            strncpy(dest, filename, dest_size - 1);
+            strncpy(dest, filename_start, dest_size - 1);
             dest[dest_size - 1] = '\0';
         }
         else {
-            strncpy(dest, filename, length);
+            strncpy(dest, filename_start, length);
             dest[length] = '\0';
         }
         return dest;

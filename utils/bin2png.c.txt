@@ -1,0 +1,99 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+#define RGB332_FORMAT_ID 0x332
+
+typedef struct {
+    uint16_t width;
+    uint16_t height;
+    uint16_t format_id;
+} ImageMetadata;
+
+int rgb332_to_rgba(unsigned char* rgb332_data, int width, int height, unsigned char** rgba_data)
+{
+    int image_size = width * height;
+    *rgba_data = (unsigned char*)malloc(image_size * 4); // 4 bytes per pixel (RGBA)
+    if (!*rgba_data) {
+        perror("Error allocating RGBA buffer");
+        return 1;
+    }
+
+    for (int i = 0; i < image_size; ++i) {
+        unsigned char pixel = rgb332_data[i];
+        unsigned char r = ((pixel >> 5) & 0x7) * 255 / 7;
+        unsigned char g = ((pixel >> 2) & 0x7) * 255 / 7;
+        unsigned char b = (pixel & 0x3) * 255 / 3;
+
+        (*rgba_data)[i * 4 + 0] = r; // R
+        (*rgba_data)[i * 4 + 1] = g; // G
+        (*rgba_data)[i * 4 + 2] = b; // B
+        (*rgba_data)[i * 4 + 3] = 255; // A (fully opaque)
+    }
+    return 0;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <input_bin_file> <output_png_file>\n", argv[0]);
+        return -1;
+    }
+
+    const char* input_file = argv[1];
+    const char* output_file = argv[2];
+
+    FILE* fp = fopen(input_file, "rb");
+    if (!fp) {
+        perror("failed to open file");
+        return -1;
+    }
+
+    ImageMetadata meta;
+    if (fread(&meta, sizeof(ImageMetadata), 1, fp) != 1) {
+        perror("failed to read header");
+        fclose(fp);
+        return -1;
+    }
+
+    uint8_t* imageData = malloc(meta.width * meta.height);
+    if (fread(imageData, 1, meta.width * meta.height, fp) != meta.width * meta.height) {
+        perror("failed to read image data");
+        free(imageData);
+        fclose(fp);
+        return -1;
+    }
+
+    unsigned char* rgba_data = NULL;
+
+    if (meta.format_id == RGB332_FORMAT_ID) {
+        if (rgb332_to_rgba(imageData, meta.width, meta.height, &rgba_data) != 0) {
+            free(imageData);
+            fclose(fp);
+            return 1;
+        }
+    }
+    else {
+        fprintf(stderr, "Error: Unsupported format ID %d\n", meta.format_id);
+        free(imageData);
+        fclose(fp);
+        return 1;
+    }
+
+    int success = stbi_write_png(output_file, meta.width, meta.height, 4, rgba_data, meta.width * 4);
+    if (!success) {
+        fprintf(stderr, "Error writing PNG file.\n");
+    }
+    else {
+        printf("PNG image saved to: %s\n", output_file);
+    }
+
+    free(imageData);
+    free(rgba_data);
+    fclose(fp);
+
+    return success ? 0 : 1;
+}
