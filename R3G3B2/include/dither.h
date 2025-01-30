@@ -28,12 +28,12 @@ typedef struct {
     float weight;
 } ErrorDiffusionEntry;
 
-void floydSteinbergDither(ImageData* image);
-void jarvisDither(ImageData* image);
-void atkinsonDither(ImageData* image);
-void bayer16x16Dither(ImageData* image);
+int floydSteinbergDither(ImageData* image);
+int jarvisDither(ImageData* image);
+int atkinsonDither(ImageData* image);
+int bayer16x16Dither(ImageData* image);
 
-void noDither(ImageData* image);
+int noDither(ImageData* image);
 
 END_EXTERN_C
 

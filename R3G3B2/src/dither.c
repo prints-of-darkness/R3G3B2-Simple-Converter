@@ -33,11 +33,11 @@ static const uint8_t BAYER_MATRIX_16X16[BAYER_SIZE][BAYER_SIZE] = {
     {255, 127, 223, 95, 247, 119, 215, 87, 253, 125, 221, 93, 245, 117, 213, 85}
 };
 
-static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matrix_size)
+static int genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, int matrix_size)
 {
     if (!image || !image->data) {
         fileio_error("Null pointer passed to genericDither.");
-        return;
+        return EXIT_FAILURE;
     }
 
     const int width = image->width;
@@ -77,9 +77,10 @@ static void genericDither(ImageData* image, const ErrorDiffusionEntry* matrix, i
             }
         }
     }
+    return EXIT_SUCCESS;
 }
 
-void floydSteinbergDither(ImageData* image)
+int floydSteinbergDither(ImageData* image)
 {
     const ErrorDiffusionEntry matrix[] = {
         { 1, 0, 7.0f / 16.0f },
@@ -87,34 +88,34 @@ void floydSteinbergDither(ImageData* image)
         { 0, 1, 5.0f / 16.0f },
         { 1, 1, 1.0f / 16.0f }
     };
-    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
+    return genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
 }
 
-void jarvisDither(ImageData* image)
+int jarvisDither(ImageData* image)
 {
     const ErrorDiffusionEntry matrix[] = {
     { 1, 0, 7.0f / 48.0f }, { 2, 0, 5.0f / 48.0f },
     {-2, 1, 3.0f / 48.0f }, {-1, 1, 5.0f / 48.0f }, { 0, 1, 7.0f / 48.0f }, { 1, 1, 5.0f / 48.0f }, { 2, 1, 3.0f / 48.0f },
     {-2, 2, 1.0f / 48.0f }, {-1, 2, 3.0f / 48.0f }, { 0, 2, 5.0f / 48.0f }, { 1, 2, 3.0f / 48.0f }, { 2, 2, 1.0f / 48.0f }
     };
-    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
+    return genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
 }
 
-void atkinsonDither(ImageData* image)
+int atkinsonDither(ImageData* image)
 {
     const ErrorDiffusionEntry matrix[] = {
     { 1, 0, 1.0f / 8.0f }, { 2, 0, 1.0f / 8.0f },
     {-1, 1, 1.0f / 8.0f }, { 0, 1, 1.0f / 8.0f }, { 1, 1, 1.0f / 8.0f },
     { 0, 2, 1.0f / 8.0f }
     };
-    genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
+    return genericDither(image, matrix, sizeof(matrix) / sizeof(matrix[0]));
 }
 
-void bayer16x16Dither(ImageData* image)
+int bayer16x16Dither(ImageData* image)
 {
     if (!image || !image->data) {
         fileio_error("Null pointer passed to bayer16x16Dither.");
-        return;
+        return EXIT_FAILURE;
     }
 
     const int width = image->width;
@@ -146,13 +147,14 @@ void bayer16x16Dither(ImageData* image)
             image->data[idx + 2] = b;
         }
     }
+    return EXIT_SUCCESS;
 }
 
-void noDither(ImageData* image)
+int noDither(ImageData* image)
 {
     if (!image || !image->data) {
         fileio_error("Null pointer passed to noDither.");
-        return;
+        return EXIT_FAILURE;
     }
 
     const int width = image->width;
@@ -173,4 +175,5 @@ void noDither(ImageData* image)
             image->data[idx + 2] = b;
         }
     }
+    return EXIT_SUCCESS;
 }

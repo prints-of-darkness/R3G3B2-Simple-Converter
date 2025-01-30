@@ -27,12 +27,6 @@ typedef struct {
     int height;
 } ImageData;
 
-typedef struct {
-    uint16_t width;
-    uint16_t height;
-    uint16_t format_id;
-} ImageMetadata;
-
 END_EXTERN_C
 
 #endif

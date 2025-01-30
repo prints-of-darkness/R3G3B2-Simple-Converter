@@ -48,17 +48,17 @@ int load_image(const char* filename, ImageData* image)
 }
 
 static const char* image_types_header =
-	"#ifndef IMAGE_TYPES_H\n"
-	"#define IMAGE_TYPES_H\n\n"
-	"#include <stdint.h>\n\n"
-	"#define RGB332_FORMAT_ID 0x332\n\n"
-	"typedef struct {\n"
-	"    const uint8_t* data;\n"
-	"    uint16_t width;\n"
-	"    uint16_t height;\n"
-	"    uint16_t format_id;\n"
-	"} Image_t;\n\n"
-	"#endif // IMAGE_TYPES_H\n";
+"#ifndef IMAGE_TYPES_H\n"
+"#define IMAGE_TYPES_H\n\n"
+"#include <stdint.h>\n\n"
+"#define RGB332_FORMAT_ID 0x332\n\n"
+"typedef struct {\n"
+"    const uint8_t* data;\n"
+"    uint16_t width;\n"
+"    uint16_t height;\n"
+"    uint16_t format_id;\n"
+"} Image_t;\n\n"
+"#endif // IMAGE_TYPES_H\n";
 
 static int write_c_header(FILE* fp, const char* array_name)
 {
@@ -119,6 +119,35 @@ static int write_c_footer(FILE* fp, const char* array_name)
     return EXIT_SUCCESS;
 }
 
+
+static int write_binary_data(FILE* fp, const ImageData* image)
+{
+    if (!fp || !image || !image->data) {
+        return fileio_error("Null pointer passed to write_binary_data.");
+    }
+    // Write binary metadata header
+    ImageMetadata metadata;
+    metadata.width = image->width;
+    metadata.height = image->height;
+    metadata.format_id = RGB332_FORMAT_ID; // Use the defined format ID
+
+    if (fwrite(&metadata, sizeof(ImageMetadata), 1, fp) != 1) {
+        return fileio_perror("Failed to write binary metadata");
+    };
+
+    // Write raw binary data
+    for (size_t y = 0; y < image->height; y++) {
+        for (size_t x = 0; x < image->width; x++) {
+            size_t idx = (y * image->width + x) * RGB_COMPONENTS;
+            uint8_t rgb332 = rgbToRgb332(image->data[idx], image->data[idx + 1], image->data[idx + 2]);
+            if (fwrite(&rgb332, 1, 1, fp) != 1) { // Write 1 byte at a time
+                return fileio_perror("Failed to write to file");
+            }
+        }
+    }
+    return EXIT_SUCCESS;
+}
+
 int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image, bool header_output, bool bin_output)
 {
     FILE* fp = NULL;
@@ -134,28 +163,8 @@ int write_image_data_to_file(const char* filename, const char* array_name, const
             return fileio_perror("Failed to open output file");
         }
 
-        // Write binary metadata header
-        ImageMetadata metadata;
-        metadata.width = image->width;
-        metadata.height = image->height;
-        metadata.format_id = RGB332_FORMAT_ID; // Use the defined format ID
+        if (write_binary_data(fp, image) != EXIT_SUCCESS) goto cleanup;
 
-        if (fwrite(&metadata, sizeof(ImageMetadata), 1, fp) != 1) {
-            fileio_perror("Failed to write binary metadata");
-            goto cleanup;
-        };
-
-        // Write raw binary data
-        for (size_t y = 0; y < image->height; y++) {
-            for (size_t x = 0; x < image->width; x++) {
-                size_t idx = (y * image->width + x) * RGB_COMPONENTS;
-                uint8_t rgb332 = rgbToRgb332(image->data[idx], image->data[idx + 1], image->data[idx + 2]);
-                if (fwrite(&rgb332, 1, 1, fp) != 1) { // Write 1 byte at a time
-                    fileio_perror("Failed to write to file");
-                    goto cleanup;
-                };
-            }
-        }
     }
     else if (header_output) {
         fp = fopen(filename, "w");

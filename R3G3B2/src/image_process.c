@@ -22,7 +22,7 @@
 static char* trim_filename_copy(const char* filename, char* dest, size_t dest_size)
 {
     if (!filename || !dest || dest_size == 0) {
-        return NULL;
+        return NULL; //Return null if null is passed (no message needed).
     }
     dest[0] = '\0';
 
@@ -92,9 +92,15 @@ int process_image(ProgramOptions* opts)
 
     uint8_t gamma_lut[LUT_SIZE];
     uint8_t contrast_brightness_lut[LUT_SIZE];
-    initialize_luts(opts->gamma, opts->contrast, opts->lightness, gamma_lut, contrast_brightness_lut);
-    
-    process_image_with_luts(&image, gamma_lut, contrast_brightness_lut);
+    if (initialize_luts(opts->gamma, opts->contrast, opts->lightness, gamma_lut, contrast_brightness_lut) != EXIT_SUCCESS) {
+        free_image_memory(&image);
+        return EXIT_FAILURE;
+    }
+
+    if (process_image_with_luts(&image, gamma_lut, contrast_brightness_lut) != EXIT_SUCCESS) {
+        free_image_memory(&image);
+        return EXIT_FAILURE;
+    }
 
     if (write_debug_image("processed.bmp", &image, opts) != EXIT_SUCCESS) {
         free_image_memory(&image);
@@ -107,15 +113,21 @@ int process_image(ProgramOptions* opts)
     case 1:  dither_function = jarvisDither;         break;
     case 2:  dither_function = atkinsonDither;       break;
     case 3:  dither_function = bayer16x16Dither;     break;
-    default: dither_function = noDither;             break; //setting to null breaks visual debugging
+    default: dither_function = noDither;             break;
     }
 
     if (dither_function) {
-        dither_function(&image);
+        if (dither_function(&image) != EXIT_SUCCESS) {
+            free_image_memory(&image);
+            return EXIT_FAILURE;
+        }
     }
 
     char array_name[MAX_FILENAME_LENGTH];
-    trim_filename_copy(opts->outfilename, array_name, MAX_FILENAME_LENGTH);
+    if (trim_filename_copy(opts->outfilename, array_name, MAX_FILENAME_LENGTH) == NULL) {
+        free_image_memory(&image);
+        return fileio_error("trim_filename_copy failed");
+    }
     if (write_image_data_to_file(opts->outfilename, array_name, &image, opts->header_output, opts->bin_output) != EXIT_SUCCESS) {
         free_image_memory(&image);
         return EXIT_FAILURE;

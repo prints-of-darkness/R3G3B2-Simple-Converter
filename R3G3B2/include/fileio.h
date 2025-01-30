@@ -24,6 +24,12 @@ BEGIN_EXTERN_C
 #include "options.h"
 #include "image_typedef.h"
 
+typedef struct {
+    uint16_t width;
+    uint16_t height;
+    uint16_t format_id;
+} ImageMetadata;
+
 void free_image_memory(ImageData* image);
 int load_image(const char* filename, ImageData* image);
 int write_image_data_to_file(const char* filename, const char* array_name, const ImageData* image, bool header_output, bool bin_output);

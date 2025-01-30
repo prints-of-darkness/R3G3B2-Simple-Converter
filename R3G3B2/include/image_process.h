@@ -22,7 +22,7 @@ BEGIN_EXTERN_C
 #include "options.h"
 #include "image_typedef.h"
 
-typedef void (*DitherFunc)(ImageData* image);
+typedef int (*DitherFunc)(ImageData* image);
 
 int process_image(ProgramOptions* opts);
 

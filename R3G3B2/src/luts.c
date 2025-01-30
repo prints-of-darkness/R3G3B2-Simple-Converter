@@ -14,11 +14,11 @@
 #include "luts.h"
 #include "error.h"
 
-void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut)
+int initialize_luts(float gamma, float contrast, float brightness, uint8_t* gamma_lut, uint8_t* contrast_brightness_lut)
 {
     if (!gamma_lut || !contrast_brightness_lut) {
         fileio_error("Null pointer passed to LUT initialization.");
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 
     float factor = (259.0f * (contrast + 255.0f)) / (255.0f * (259.0f - contrast));
@@ -31,21 +31,23 @@ void initialize_luts(float gamma, float contrast, float brightness, uint8_t* gam
         contrast_brightness_lut[i] = (uint8_t)(value * (float)MAX_COLOUR_VALUE);                                    // Scale the result back to 0-255 and store in the contrast/brightness LUT
         gamma_lut[i] = (uint8_t)(powf((float)i / (float)MAX_COLOUR_VALUE, 1.0f / gamma) * (float)MAX_COLOUR_VALUE); // Apply gamma correction and store in the gamma LUT
     }
+    return EXIT_SUCCESS;
 }
 
-void process_image_with_luts(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut)
+int process_image_with_luts(ImageData* image, const uint8_t* gamma_lut, const uint8_t* contrast_brightness_lut)
 {
     if (!image || !image->data || !gamma_lut || !contrast_brightness_lut) {
         fileio_error("Null pointer passed to process_image_with_luts.");
-        return;
+        return EXIT_FAILURE;
     }
 
     for (int y = 0; y < image->height; y++) {
         for (int x = 0; x < image->width; x++) {
             int idx = (y * image->width + x) * RGB_COMPONENTS;
-            image->data[idx]     = contrast_brightness_lut[gamma_lut[image->data[idx]]];     // Red channel
+            image->data[idx] = contrast_brightness_lut[gamma_lut[image->data[idx]]];     // Red channel
             image->data[idx + 1] = contrast_brightness_lut[gamma_lut[image->data[idx + 1]]]; // Green channel
             image->data[idx + 2] = contrast_brightness_lut[gamma_lut[image->data[idx + 2]]]; // Blue channel
         }
     }
+    return EXIT_SUCCESS;
 }
