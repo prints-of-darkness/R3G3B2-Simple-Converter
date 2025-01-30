@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h> // For errno
+#include <ctype.h>  // For isspace
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -34,7 +36,7 @@ unsigned char hex_str_to_byte(const char* hex_str) {
 int parse_header_image(const char* filename, unsigned char** image_data, int* width, int* height, int* format_id) {
     FILE* file = fopen(filename, "r");
     if (!file) {
-        perror("Error opening header file");
+        fprintf(stderr, "Error opening header file '%s': %s\n", filename, strerror(errno));
         return 1;
     }
 
@@ -45,11 +47,11 @@ int parse_header_image(const char* filename, unsigned char** image_data, int* wi
 
     // First pass, find dimensions, format, and beginning of data
     while (fgets(line, sizeof(line), file) != NULL) {
-
         char* width_str = strstr(line, ".width = ");
         char* height_str = strstr(line, ".height = ");
         char* format_str = strstr(line, ".format_id = ");
         char* data_start_str = strstr(line, "static const uint8_t ");
+
         if (data_start_str && !strstr(line, "static const Image_t")) {
             data_start_str = strstr(line, "{");
             if (!data_start_str) {
@@ -60,10 +62,35 @@ int parse_header_image(const char* filename, unsigned char** image_data, int* wi
         }
 
         if (width_str) {
-            *width = atoi(width_str + strlen(".width = "));
+            char* endptr;
+            long w = strtol(width_str + strlen(".width = "), &endptr, 10);
+            if (endptr == width_str + strlen(".width = ") || !isspace(*endptr) && *endptr != ',' && *endptr != '\0' && *endptr != '\r' && *endptr != '\n') {
+                fprintf(stderr, "Error: Invalid width format in header file.\n");
+                fclose(file);
+                return 1;
+            }
+            if (w <= 0 || w > 65535) {
+                fprintf(stderr, "Error: Invalid width value: %ld (must be > 0 and <= 65535)\n", w);
+                fclose(file);
+                return 1;
+            }
+            *width = (int)w;
         }
         if (height_str) {
-            *height = atoi(height_str + strlen(".height = "));
+            char* endptr;
+            long h = strtol(height_str + strlen(".height = "), &endptr, 10);
+            if (endptr == height_str + strlen(".height = ") || !isspace(*endptr) && *endptr != ',' && *endptr != '\0' && *endptr != '\r' && *endptr != '\n') {
+                fprintf(stderr, "Error: Invalid height format in header file.\n");
+                fclose(file);
+                return 1;
+            }
+            if (h <= 0 || h > 65535) {
+                fprintf(stderr, "Error: Invalid height value: %ld (must be > 0 and <= 65535)\n", h);
+                fclose(file);
+                return 1;
+            }
+            *height = (int)h;
+
         }
         if (format_str) {
             char* format_value = format_str + strlen(".format_id = ");
@@ -71,29 +98,49 @@ int parse_header_image(const char* filename, unsigned char** image_data, int* wi
                 *format_id = RGB332_FORMAT_ID;
             }
             else {
-                *format_id = strtol(format_value, NULL, 0);
+                char* endptr;
+                long f = strtol(format_value, &endptr, 0);
+                if (endptr == format_value || !isspace(*endptr) && *endptr != ',' && *endptr != '\0' && *endptr != '\r' && *endptr != '\n') {
+                    fprintf(stderr, "Error: Invalid format ID format in header file.\n");
+                    fclose(file);
+                    return 1;
+                }
+                if (f < 0 || f > 65535) {
+                    fprintf(stderr, "Error: Invalid format ID value: %ld (must be >= 0 and <= 65535)\n", f);
+                    fclose(file);
+                    return 1;
+                }
+                *format_id = (int)f;
+
             }
             found_format = 1;
         }
     }
 
     if (*width <= 0 || *height <= 0 || !found_format || !found_image_data) {
-        fprintf(stderr, "Error: Invalid image info, or missing image data\n");
+        fprintf(stderr, "Error: Invalid or missing image information (width=%d, height=%d, format found=%d, data found=%d)\n",
+            *width, *height, found_format, found_image_data);
         fclose(file);
         return 1;
     }
 
-    // Go to begining of data
-    fseek(file, data_start, SEEK_SET);
+
+    // Go to beginning of data
+    if (fseek(file, data_start, SEEK_SET) != 0) {
+        fprintf(stderr, "Error seeking to image data: %s\n", strerror(errno));
+        fclose(file);
+        return 1;
+    }
 
     int image_size = (*width) * (*height);
     *image_data = (unsigned char*)malloc(image_size);
 
     if (!*image_data) {
-        perror("Error allocating image buffer");
+        fprintf(stderr, "Error allocating image buffer: %s\n", strerror(errno));
         fclose(file);
         return 1;
     }
+
 
     // Read and parse the hex bytes
     int i = 0;
@@ -120,6 +167,12 @@ int parse_header_image(const char* filename, unsigned char** image_data, int* wi
                 (*image_data)[i++] = hex_str_to_byte(buffer);
             }
         }
+        else if (c != ' ' && c != '\n' && c != '\r' && c != ',') {
+            fprintf(stderr, "Error: Unexpected character '%c' found in image data.\n", c);
+            free(*image_data);
+            fclose(file);
+            return 1;
+        }
     }
 
     if (i != image_size) {
@@ -129,6 +182,7 @@ int parse_header_image(const char* filename, unsigned char** image_data, int* wi
         return 1;
     }
 
+
     fclose(file);
     return 0;
 }
@@ -137,7 +191,7 @@ int rgb332_to_rgba(unsigned char* rgb332_data, int width, int height, unsigned c
     int image_size = width * height;
     *rgba_data = (unsigned char*)malloc(image_size * 4); // 4 bytes per pixel (RGBA)
     if (!*rgba_data) {
-        perror("Error allocating RGBA buffer");
+        fprintf(stderr, "Error allocating RGBA buffer: %s\n", strerror(errno));
         return 1;
     }
 
