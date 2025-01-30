@@ -102,16 +102,6 @@ int parse_command_line_args(int argc, char* argv[], ProgramOptions* opts)
             }
             opts->header_output = true;
         }
-        else if (strcmp(argv[i], "-palette") == 0) {
-            if (i + 1 < argc) {
-                strncpy(opts->palette_filename, argv[i + 1], MAX_FILENAME_LENGTH - 1);
-                opts->palette_filename[MAX_FILENAME_LENGTH - 1] = '\0';
-                i++;
-            }
-            else {
-                return fileio_error("-palette option requires an argument.");
-            }
-        }
         else if (strcmp(argv[i], "-l") == 0) {
             if (i + 1 < argc) {
                 opts->lightness = (float)atof(argv[i + 1]);
