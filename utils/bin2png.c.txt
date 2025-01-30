@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -16,7 +17,17 @@ typedef struct {
 
 int rgb332_to_rgba(unsigned char* rgb332_data, int width, int height, unsigned char** rgba_data)
 {
+    if (rgb332_data == NULL || width <= 0 || height <= 0 || rgba_data == NULL) {
+        fprintf(stderr, "Error: Invalid arguments to rgb332_to_rgba.\n");
+        return 1;
+    }
+
     int image_size = width * height;
+    if (image_size <= 0) {
+        fprintf(stderr, "Error: Invalid image dimensions (width * height <= 0).\n");
+        return 1;
+    }
+
     *rgba_data = (unsigned char*)malloc(image_size * 4); // 4 bytes per pixel (RGBA)
     if (!*rgba_data) {
         perror("Error allocating RGBA buffer");
@@ -40,32 +51,53 @@ int rgb332_to_rgba(unsigned char* rgb332_data, int width, int height, unsigned c
 int main(int argc, char* argv[]) {
     if (argc != 3) {
         fprintf(stderr, "Usage: %s <input_bin_file> <output_png_file>\n", argv[0]);
-        return -1;
+        return 1; // Return 1 for error
     }
 
     const char* input_file = argv[1];
     const char* output_file = argv[2];
 
+    if (strcmp(input_file, output_file) == 0) {
+        fprintf(stderr, "Error: Input and output file cannot be the same.\n");
+        return 1;
+    }
+
     FILE* fp = fopen(input_file, "rb");
     if (!fp) {
-        perror("failed to open file");
-        return -1;
+        fprintf(stderr, "Error: failed to open file %s: %s\n", input_file, strerror(errno));
+        return 1;
     }
 
     ImageMetadata meta;
     if (fread(&meta, sizeof(ImageMetadata), 1, fp) != 1) {
-        perror("failed to read header");
+        fprintf(stderr, "Error: failed to read header from %s: %s\n", input_file, strerror(errno));
         fclose(fp);
-        return -1;
+        return 1;
     }
 
+    if (meta.width <= 0 || meta.height <= 0) {
+        fprintf(stderr, "Error: Invalid image dimensions in header (width: %d, height: %d).\n", meta.width, meta.height);
+        fclose(fp);
+        return 1;
+    }
+
+
     uint8_t* imageData = malloc(meta.width * meta.height);
-    if (fread(imageData, 1, meta.width * meta.height, fp) != meta.width * meta.height) {
-        perror("failed to read image data");
+    if (!imageData) {
+        perror("Error allocating image data buffer");
+        fclose(fp);
+        return 1;
+    }
+
+    size_t bytes_read = fread(imageData, 1, meta.width * meta.height, fp);
+    if (bytes_read != (size_t)(meta.width * meta.height)) {
+        fprintf(stderr, "Error: failed to read image data from %s, read %zu bytes, expected %d: %s\n",
+            input_file, bytes_read, meta.width * meta.height, (feof(fp) ? "end of file" : strerror(errno)));
         free(imageData);
         fclose(fp);
-        return -1;
+        return 1;
     }
+
 
     unsigned char* rgba_data = NULL;
 
@@ -85,7 +117,7 @@ int main(int argc, char* argv[]) {
 
     int success = stbi_write_png(output_file, meta.width, meta.height, 4, rgba_data, meta.width * 4);
     if (!success) {
-        fprintf(stderr, "Error writing PNG file.\n");
+        fprintf(stderr, "Error writing PNG file: %s\n", output_file);
     }
     else {
         printf("PNG image saved to: %s\n", output_file);
